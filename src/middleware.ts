@@ -7,21 +7,20 @@ export function middleware(request: NextRequest) {
 
     const { pathname } = request.nextUrl;
 
-    const isAuthRoute = pathname.startsWith('/login');
     const isSekolahRoute = pathname.startsWith('/sekolah');
     const isDisdikRoute = pathname.startsWith('/disdik');
     const isHomeRoute = pathname === '/';
 
     if (!token) {
-        if (isSekolahRoute || isDisdikRoute || isHomeRoute) {
-            return NextResponse.redirect(new URL('/login', request.url));
+        // Protected routes require auth — redirect ke landing page (login modal ada di sana)
+        if (isSekolahRoute || isDisdikRoute) {
+            return NextResponse.redirect(new URL('/', request.url));
         }
         return NextResponse.next();
     }
 
-    // If user is logged in
-    if (isAuthRoute || isHomeRoute) {
-        // Redirect based on role
+    // Jika sudah login dan buka home, redirect ke dashboard sesuai role
+    if (isHomeRoute) {
         if (role === 'disdik') {
             return NextResponse.redirect(new URL('/disdik/dashboard', request.url));
         } else {

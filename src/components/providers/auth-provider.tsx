@@ -1,60 +1,83 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { useAuthStore } from "@/lib/store";
-import { Loader2 } from "lucide-react";
+import { getUserProfile } from "@/lib/firestore-service";
+import { LoadingScreen } from "@/components/ui/loading-screen";
+import { useRouter } from "next/navigation";
+
+const SESSION_KEY = "simpeka_last_active";
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 jam
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const { setAuth, clearAuth } = useAuthStore();
+    const router = useRouter();
+
+    const forceLogout = async () => {
+        try { await signOut(auth); } catch { /* ignore */ }
+        clearAuth();
+        document.cookie = "auth_token=; path=/; max-age=0";
+        document.cookie = "user_role=; path=/; max-age=0";
+        localStorage.removeItem(SESSION_KEY);
+        router.push("/");
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // ── Cek apakah sesi sudah kadaluwarsa (dibuka kembali setelah tutup) ──
+                const lastActive = localStorage.getItem(SESSION_KEY);
+                if (lastActive) {
+                    const elapsed = Date.now() - parseInt(lastActive, 10);
+                    if (elapsed > SESSION_TIMEOUT_MS) {
+                        // Sesi expired → paksa logout
+                        await forceLogout();
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                // Sesi masih valid -> set profil
                 try {
-                    const userDoc = await getDoc(doc(db, "users", user.uid));
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
+                    const profile = await getUserProfile(user.uid);
+                    if (profile) {
                         setAuth({
                             uid: user.uid,
-                            email: user.email,
-                            role: userData.role,
-                            npsn: userData.npsn,
-                            namaInstansi: userData.nama_instansi,
+                            email: user.email || "",
+                            role: profile.role,
+                            npsn: profile.npsn || null,
+                            namaInstansi: profile.nama_instansi,
                         });
-
-                        // Sync cookie just in case
-                        const idToken = await user.getIdToken();
-                        document.cookie = `auth_token=${idToken}; path=/; max-age=86400; SameSite=Strict; Secure`;
-                        document.cookie = `user_role=${userData.role}; path=/; max-age=86400; SameSite=Strict; Secure`;
+                        // Perbarui timestamp sesi
+                        localStorage.setItem(SESSION_KEY, Date.now().toString());
+                        // Sync cookie untuk middleware
+                        document.cookie = `auth_token=${await user.getIdToken()}; path=/; max-age=3600; SameSite=Strict`;
+                        document.cookie = `user_role=${profile.role}; path=/; max-age=3600; SameSite=Strict`;
                     } else {
                         clearAuth();
+                        document.cookie = "auth_token=; path=/; max-age=0";
+                        document.cookie = "user_role=; path=/; max-age=0";
                     }
-                } catch (error) {
-                    console.error("Error fetching user data:", error);
+                } catch (err) {
+                    console.error("Auth provider error:", err);
                     clearAuth();
                 }
             } else {
                 clearAuth();
-                document.cookie = 'auth_token=; Max-Age=0; path=/;';
-                document.cookie = 'user_role=; Max-Age=0; path=/;';
+                document.cookie = "auth_token=; path=/; max-age=0";
+                document.cookie = "user_role=; path=/; max-age=0";
+                localStorage.removeItem(SESSION_KEY);
             }
             setLoading(false);
         });
-
         return () => unsubscribe();
-    }, [setAuth, clearAuth]);
+    }, [setAuth, clearAuth]); // eslint-disable-line
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-                <p className="text-slate-500 font-medium">Memuat SIMPEKA SD...</p>
-            </div>
-        );
+        return <LoadingScreen text="Memverifikasi sesi..." />;
     }
 
     return <>{children}</>;

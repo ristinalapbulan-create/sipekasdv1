@@ -9,6 +9,7 @@ interface AuthState {
     role: UserRole;
     npsn: string | null;
     namaInstansi: string | null;
+    kecamatan: string | null;
     isAuthenticated: boolean;
     setAuth: (data: Partial<AuthState>) => void;
     clearAuth: () => void;
@@ -22,6 +23,7 @@ export const useAuthStore = create<AuthState>()(
             role: null,
             npsn: null,
             namaInstansi: null,
+            kecamatan: null,
             isAuthenticated: false,
             setAuth: (data) => set((state) => ({ ...state, ...data, isAuthenticated: true })),
             clearAuth: () =>
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
                     role: null,
                     npsn: null,
                     namaInstansi: null,
+                    kecamatan: null,
                     isAuthenticated: false,
                 }),
         }),
