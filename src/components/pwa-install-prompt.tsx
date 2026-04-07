@@ -14,22 +14,52 @@ export function PWAInstallPrompt() {
     const [show, setShow] = useState(false);
 
     useEffect(() => {
+        // Cek apakah aplikasi sudah diinstall (berjalan di mode standalone)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone);
+        // Cek apakah user pernah menekan "Nanti" / dismiss
+        const isDismissed = localStorage.getItem('pwa_prompt_dismissed') === 'true';
+
+        if (isStandalone || isDismissed) {
+            return;
+        }
+
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
             // Tampilkan setelah 3 detik
             setTimeout(() => setShow(true), 3000);
         };
+
+        const installHandler = () => {
+            setShow(false);
+            setDeferredPrompt(null);
+            // Beri tanda sudah diinstall agar saat dibuka via browser tidak muncul lagi
+            localStorage.setItem('pwa_prompt_dismissed', 'true');
+        };
+
         window.addEventListener("beforeinstallprompt", handler);
-        return () => window.removeEventListener("beforeinstallprompt", handler);
+        window.addEventListener("appinstalled", installHandler);
+
+        return () => {
+            window.removeEventListener("beforeinstallprompt", handler);
+            window.removeEventListener("appinstalled", installHandler);
+        };
     }, []);
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;
         await deferredPrompt.prompt();
         const result = await deferredPrompt.userChoice;
-        if (result.outcome === "accepted") setShow(false);
+        if (result.outcome === "accepted") {
+            setShow(false);
+            localStorage.setItem('pwa_prompt_dismissed', 'true');
+        }
         setDeferredPrompt(null);
+    };
+
+    const handleDismiss = () => {
+        setShow(false);
+        localStorage.setItem('pwa_prompt_dismissed', 'true');
     };
 
     return (
@@ -56,14 +86,14 @@ export function PWAInstallPrompt() {
                                     style={{ background: "linear-gradient(135deg, #1A3C2B, #2D6A4F)" }}>
                                     <Download className="h-3.5 w-3.5" /> Install
                                 </motion.button>
-                                <button onClick={() => setShow(false)}
+                                <button onClick={handleDismiss}
                                     className="px-3 py-2 rounded-xl text-xs font-bold border transition-all"
                                     style={{ borderColor: "#E2E8F0", color: "#64748B" }}>
                                     Nanti
                                 </button>
                             </div>
                         </div>
-                        <button onClick={() => setShow(false)} className="text-slate-300 hover:text-slate-500 shrink-0">
+                        <button onClick={handleDismiss} className="text-slate-300 hover:text-slate-500 shrink-0">
                             <X className="h-4 w-4" />
                         </button>
                     </div>
