@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllSKs, addSK, deleteSK, type SK } from "@/lib/firestore-service";
+import { getAllSKs, addSKByLink, deleteSK, type SK } from "@/lib/firestore-service";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, FileText, Upload, Search, ScrollText } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText, Link2, Search, ScrollText, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -20,7 +20,7 @@ export default function KelolaSKPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [nomorSurat, setNomorSurat] = useState("");
     const [judul, setJudul] = useState("");
-    const [file, setFile] = useState<File | null>(null);
+    const [linkGdrive, setLinkGdrive] = useState("");
 
     const fetchSKs = async () => {
         setIsLoading(true);
@@ -31,23 +31,23 @@ export default function KelolaSKPage() {
 
     useEffect(() => { fetchSKs(); }, []);
 
-    const handleUpload = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file || !nomorSurat || !judul) { toast.error("Mohon lengkapi semua kolom dan pilih file PDF"); return; }
-        if (file.type !== "application/pdf") { toast.error("Format file harus PDF"); return; }
+        if (!nomorSurat || !judul || !linkGdrive) { toast.error("Mohon lengkapi semua kolom"); return; }
+        if (!linkGdrive.startsWith("https://")) { toast.error("Link harus berupa URL valid (https://...)"); return; }
         setIsSubmitting(true);
         try {
-            await addSK({ nomor_surat: nomorSurat, judul }, file);
-            toast.success("SK Berhasil diunggah ke Firebase Storage");
+            await addSKByLink({ nomor_surat: nomorSurat, judul, link_gdrive: linkGdrive });
+            toast.success("SK berhasil disimpan!");
             setIsDialogOpen(false);
-            setNomorSurat(""); setJudul(""); setFile(null);
+            setNomorSurat(""); setJudul(""); setLinkGdrive("");
             fetchSKs();
-        } catch { toast.error("Gagal mengunggah SK. Periksa koneksi internet."); }
+        } catch { toast.error("Gagal menyimpan SK."); }
         finally { setIsSubmitting(false); }
     };
 
     const handleDelete = async (id: string, fileUrl: string) => {
-        if (!confirm("Hapus SK ini secara permanen? File PDF juga akan dihapus.")) return;
+        if (!confirm("Hapus SK ini secara permanen?")) return;
         try { await deleteSK(id, fileUrl); toast.success("SK berhasil dihapus"); setSks(sks.filter(s => s.id !== id)); }
         catch { toast.error("Gagal menghapus SK"); }
     };
@@ -72,7 +72,7 @@ export default function KelolaSKPage() {
                         style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                         Surat Keputusan (SK)
                     </h1>
-                    <p className="text-slate-500 mt-1 font-medium text-sm">Kelola dan unggah SK Disdik untuk diakses oleh sekolah.</p>
+                    <p className="text-slate-500 mt-1 font-medium text-sm">Kelola dan bagikan SK Disdik melalui link Google Drive.</p>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
@@ -86,55 +86,53 @@ export default function KelolaSKPage() {
                         onClick={() => setIsDialogOpen(true)}
                         className="flex items-center gap-2 px-5 py-2.5 text-sm font-black rounded-xl shadow-lg transition-all whitespace-nowrap"
                         style={{ background: P.gold, color: P.forestDark }}>
-                        <Plus className="h-4 w-4" /> Unggah SK Baru
+                        <Plus className="h-4 w-4" /> Tambah SK
                     </motion.button>
                 </div>
 
                 {/* Dialog */}
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-3xl">
-                        <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${P.forest}, ${P.sage}, ${P.gold})` }} />
-                        <div className="p-6">
-                            <DialogHeader className="mb-5">
-                                <DialogTitle className="text-xl font-black text-slate-900">Unggah SK Baru</DialogTitle>
-                                <p className="text-sm text-slate-500 font-medium mt-1">Lengkapi informasi dan unggah file PDF ke Firebase Storage.</p>
+                    <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+                        <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${P.forest}, ${P.sage}, ${P.gold})` }} />
+                        <div className="p-5">
+                            <DialogHeader className="mb-4">
+                                <DialogTitle className="text-base font-black text-slate-900">Tambah SK Baru</DialogTitle>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">Masukkan data SK dan link Google Drive dokumen PDF.</p>
                             </DialogHeader>
-                            <form onSubmit={handleUpload} className="space-y-4">
+                            <form onSubmit={handleSubmit} className="space-y-3">
                                 <div>
-                                    <label className="text-sm font-bold mb-1.5 block" style={{ color: P.forestDark }}>Nomor Surat</label>
+                                    <label className="text-xs font-black mb-1.5 block" style={{ color: P.forestDark }}>Nomor Surat</label>
                                     <input value={nomorSurat} onChange={e => setNomorSurat(e.target.value)}
                                         placeholder="Contoh: SK/001/DISDIK/2026"
-                                        className="w-full h-11 px-4 rounded-xl text-sm font-medium outline-none border"
+                                        className="w-full h-10 px-4 rounded-xl text-sm font-medium outline-none border"
                                         style={{ borderColor: `${P.sage}30`, backgroundColor: P.cream }}
                                         required />
                                 </div>
                                 <div>
-                                    <label className="text-sm font-bold mb-1.5 block" style={{ color: P.forestDark }}>Judul/Perihal SK</label>
+                                    <label className="text-xs font-black mb-1.5 block" style={{ color: P.forestDark }}>Judul/Perihal SK</label>
                                     <input value={judul} onChange={e => setJudul(e.target.value)}
                                         placeholder="Masukkan judul SK"
-                                        className="w-full h-11 px-4 rounded-xl text-sm font-medium outline-none border"
+                                        className="w-full h-10 px-4 rounded-xl text-sm font-medium outline-none border"
                                         style={{ borderColor: `${P.sage}30`, backgroundColor: P.cream }}
                                         required />
                                 </div>
                                 <div>
-                                    <label className="text-sm font-bold mb-1.5 block" style={{ color: P.forestDark }}>File SK (PDF)</label>
-                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:shadow-sm"
-                                        style={{ borderColor: file ? P.forest : `${P.sage}40`, backgroundColor: file ? '#D1FAE550' : P.cream }}>
-                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <Upload className="w-7 h-7 mb-2" style={{ color: file ? P.forest : P.sage }} />
-                                            <p className="text-sm font-medium" style={{ color: file ? P.forest : '#64748b' }}>
-                                                {file ? file.name : "Klik untuk pilih file PDF"}
-                                            </p>
-                                        </div>
-                                        <input type="file" className="hidden" accept="application/pdf"
-                                            onChange={e => setFile(e.target.files?.[0] || null)} required />
-                                    </label>
+                                    <label className="text-xs font-black mb-1.5 block" style={{ color: P.forestDark }}>Link Google Drive (PDF)</label>
+                                    <div className="relative">
+                                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: P.sage }} />
+                                        <input value={linkGdrive} onChange={e => setLinkGdrive(e.target.value)}
+                                            placeholder="https://drive.google.com/file/d/..."
+                                            className="w-full h-10 pl-10 pr-4 rounded-xl text-sm font-medium outline-none border"
+                                            style={{ borderColor: `${P.sage}30`, backgroundColor: P.cream }}
+                                            required />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1 ml-1">Pastikan akses link sudah diatur ke &quot;Siapa saja yang memiliki link&quot;</p>
                                 </div>
                                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                     type="submit" disabled={isSubmitting}
-                                    className="w-full h-12 text-white font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
-                                    style={{ background: `linear-gradient(135deg, ${P.forest}, ${P.sage})` }}>
-                                    {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Mengunggah ke Firebase...</> : "Simpan Dokumen"}
+                                    className="w-full h-11 text-white font-black rounded-xl shadow-md flex items-center justify-center gap-2 mt-1"
+                                    style={{ background: `linear-gradient(135deg, ${P.forest}, ${P.sage})`, opacity: isSubmitting ? 0.6 : 1 }}>
+                                    {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Menyimpan...</> : "✓ Simpan SK"}
                                 </motion.button>
                             </form>
                         </div>
@@ -146,7 +144,9 @@ export default function KelolaSKPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                 className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
                 style={{ borderLeft: `4px solid ${P.gold}` }}>
-                <div className="grid grid-cols-[1.5fr_2fr_1fr_auto] gap-4 px-6 py-3.5 border-b"
+
+                {/* Desktop Header */}
+                <div className="hidden sm:grid grid-cols-[1.5fr_2fr_1fr_auto] gap-4 px-6 py-3.5 border-b"
                     style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
                     {['No. Surat', 'Judul', 'Tanggal', 'Aksi'].map(h => (
                         <span key={h} className="text-[11px] font-black uppercase tracking-wider" style={{ color: P.forest }}>{h}</span>
@@ -156,7 +156,7 @@ export default function KelolaSKPage() {
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center h-48 gap-3">
                         <Loader2 className="h-7 w-7 animate-spin" style={{ color: P.sage }} />
-                        <p className="text-slate-500 font-medium text-sm">Memuat data dari Firebase...</p>
+                        <p className="text-slate-500 font-medium text-sm">Memuat data...</p>
                     </div>
                 ) : filteredSks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-48 gap-3">
@@ -170,32 +170,61 @@ export default function KelolaSKPage() {
                         {filteredSks.map((sk, i) => (
                             <motion.div key={sk.id}
                                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }} transition={{ delay: i * 0.04 }}
-                                className="grid grid-cols-[1.5fr_2fr_1fr_auto] gap-4 items-center px-6 py-4 border-b last:border-0 hover:bg-slate-50/60 transition-colors"
-                                style={{ borderColor: `${P.sage}15` }}>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
-                                        <ScrollText className="h-4 w-4" style={{ color: '#D97706' }} />
+                                exit={{ opacity: 0, y: -8 }} transition={{ delay: i * 0.04 }}>
+
+                                {/* Desktop */}
+                                <div className="hidden sm:grid grid-cols-[1.5fr_2fr_1fr_auto] gap-4 items-center px-6 py-4 border-b last:border-0 hover:bg-slate-50/60 transition-colors"
+                                    style={{ borderColor: `${P.sage}15` }}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
+                                            <ScrollText className="h-4 w-4" style={{ color: '#D97706' }} />
+                                        </div>
+                                        <span className="text-xs font-black font-mono" style={{ color: P.forestDark }}>{sk.nomor_surat}</span>
                                     </div>
-                                    <span className="text-xs font-black font-mono" style={{ color: P.forestDark }}>{sk.nomor_surat}</span>
+                                    <p className="text-sm font-medium text-slate-700 leading-snug">{sk.judul}</p>
+                                    <p className="text-xs text-slate-400 font-medium">
+                                        {new Date(sk.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <motion.a href={sk.file_url} target="_blank" rel="noreferrer"
+                                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl transition-all"
+                                            style={{ backgroundColor: '#D1FAE5', color: P.forest }}>
+                                            <ExternalLink className="h-3.5 w-3.5" /> Buka
+                                        </motion.a>
+                                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                            onClick={() => handleDelete(sk.id, sk.file_url)}
+                                            className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </motion.button>
+                                    </div>
                                 </div>
-                                <p className="text-sm font-medium text-slate-700 leading-snug">{sk.judul}</p>
-                                <p className="text-xs text-slate-400 font-medium">
-                                    {new Date(sk.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <motion.a href={sk.file_url} target="_blank" rel="noreferrer"
-                                        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl transition-all"
-                                        style={{ backgroundColor: '#D1FAE5', color: P.forest }}>
-                                        <FileText className="h-3.5 w-3.5" /> Buka
-                                    </motion.a>
-                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleDelete(sk.id, sk.file_url)}
-                                        className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
-                                        style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </motion.button>
+
+                                {/* Mobile */}
+                                <div className="sm:hidden p-4 border-b space-y-2" style={{ borderColor: `${P.sage}12` }}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
+                                            <ScrollText className="h-4 w-4" style={{ color: '#D97706' }} />
+                                        </div>
+                                        <span className="text-xs font-black font-mono" style={{ color: P.forestDark }}>{sk.nomor_surat}</span>
+                                    </div>
+                                    <p className="text-sm font-medium text-slate-700">{sk.judul}</p>
+                                    <p className="text-xs text-slate-400">
+                                        {new Date(sk.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </p>
+                                    <div className="flex gap-2 pt-1">
+                                        <a href={sk.file_url} target="_blank" rel="noreferrer"
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black"
+                                            style={{ backgroundColor: '#D1FAE5', color: P.forest }}>
+                                            <ExternalLink className="h-3.5 w-3.5" /> Buka Dokumen
+                                        </a>
+                                        <button onClick={() => handleDelete(sk.id, sk.file_url)}
+                                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             </motion.div>
                         ))}

@@ -13,16 +13,16 @@ import { LoginModal } from '@/components/login-modal';
 // ── PALETTE (Islamic green-gold) ──
 const P = {
   forestDark: '#1A3C2B',
-  forest:     '#2D6A4F',
-  sage:       '#74B38A',
-  gold:       '#FAC84A',
-  goldLight:  '#FDE68A',
-  cream:      '#FEFAE0',
-  creamMid:   '#FEF3C7',
+  forest: '#2D6A4F',
+  sage: '#74B38A',
+  gold: '#FAC84A',
+  goldLight: '#FDE68A',
+  cream: '#FEFAE0',
+  creamMid: '#FEF3C7',
 };
 
 // ── CONSTANTS (tahun dinamis, mulai 2026) ──
-const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 interface KecamatanStat {
   name: string; totalSchools: number; submittedSchools: number;
@@ -81,13 +81,13 @@ const DonutChart: React.FC<{ data: { label: string; count: number; color: string
           {active ? (
             <>
               <text x={cx} y={cy - 12} textAnchor="middle" fontSize="26" fontWeight="900" fill={active.color}>{active.count}</text>
-              <text x={cx} y={cy + 8}  textAnchor="middle" fontSize="10" fontWeight="700" fill={active.color}>{active.label}</text>
+              <text x={cx} y={cy + 8} textAnchor="middle" fontSize="10" fontWeight="700" fill={active.color}>{active.label}</text>
               <text x={cx} y={cy + 22} textAnchor="middle" fontSize="10" fontWeight="700" fill={active.color}>{active.pct}%</text>
             </>
           ) : (
             <>
-              <text x={cx} y={cy - 6}  textAnchor="middle" fontSize="28" fontWeight="900" fill={P.forest}>{total}</text>
-              <text x={cx} y={cy + 14} textAnchor="middle" fontSize="9"  fontWeight="700" fill={P.sage} letterSpacing="2">TOTAL</text>
+              <text x={cx} y={cy - 6} textAnchor="middle" fontSize="28" fontWeight="900" fill={P.forest}>{total}</text>
+              <text x={cx} y={cy + 14} textAnchor="middle" fontSize="9" fontWeight="700" fill={P.sage} letterSpacing="2">TOTAL</text>
             </>
           )}
         </svg>
@@ -140,8 +140,8 @@ const HexPattern = () => (
   <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <pattern id="hex" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
-        <polygon points="30,2 58,17 58,47 30,62 2,47 2,17" fill="none" stroke="#FAC84A" strokeWidth="1"/>
-        <polygon points="30,12 48,22 48,42 30,52 12,42 12,22" fill="none" stroke="#FAC84A" strokeWidth="0.5"/>
+        <polygon points="30,2 58,17 58,47 30,62 2,47 2,17" fill="none" stroke="#FAC84A" strokeWidth="1" />
+        <polygon points="30,12 48,22 48,42 30,52 12,42 12,22" fill="none" stroke="#FAC84A" strokeWidth="0.5" />
       </pattern>
     </defs>
     <rect width="100%" height="100%" fill="url(#hex)" />
@@ -193,8 +193,8 @@ export default function LandingPage() {
 
   const stats = useMemo(() => {
     const terverifikasi = reports.filter(r => r.status === 'Terverifikasi').length;
-    const menunggu      = reports.filter(r => r.status === 'Menunggu').length;
-    const revisi        = reports.filter(r => r.status === 'Revisi').length;
+    const menunggu = reports.filter(r => r.status === 'Menunggu').length;
+    const revisi = reports.filter(r => r.status === 'Revisi').length;
     const sekolahMelapor = new Set(reports.map(r => r.npsn_sekolah)).size;
     return { terverifikasi, menunggu, revisi, sekolahMelapor, total: reports.length };
   }, [reports]);
@@ -205,7 +205,7 @@ export default function LandingPage() {
   const kecamatanStats = useMemo<KecamatanStat[]>(() => {
     const g: Record<string, { sub: UserProfile[]; unsub: UserProfile[]; all: UserProfile[] }> = {};
     allSchools.forEach(s => {
-      const k = (s as any).kecamatan || 'Unknown';
+      const k = ((s as any).kecamatan || 'Unknown').replace(/^Kec\.\s*/i, '');
       if (!g[k]) g[k] = { sub: [], unsub: [], all: [] };
       g[k].all.push(s);
       if (reports.some(r => r.npsn_sekolah === s.npsn)) g[k].sub.push(s);
@@ -219,11 +219,12 @@ export default function LandingPage() {
 
   const donutData = [
     { label: 'Terverifikasi', count: stats.terverifikasi, color: P.forest, light: '#3D8B65' },
-    { label: 'Menunggu',      count: stats.menunggu,      color: P.gold,   light: '#FBD365' },
-    { label: 'Perlu Revisi',  count: stats.revisi,        color: '#EF4444', light: '#FCA5A5' },
-    { label: 'Belum Lapor',   count: unsubmitted.length,  color: P.sage,   light: '#95C9A8' },
+    { label: 'Menunggu', count: stats.menunggu, color: P.gold, light: '#FBD365' },
+    { label: 'Perlu Revisi', count: stats.revisi, color: '#EF4444', light: '#FCA5A5' },
+    { label: 'Belum Lapor', count: unsubmitted.length, color: P.sage, light: '#95C9A8' },
   ];
-  const donutTotal = stats.total + unsubmitted.length;
+  // Total = jumlah semua sekolah (yang lapor + yang belum), bukan total laporan
+  const donutTotal = allSchools.length > 0 ? allSchools.length : (stats.total + unsubmitted.length);
 
   const CARD_ACCENTS = [P.forest, P.sage, '#D97706', '#0284C7', '#7C3AED', '#DB2777'];
 
@@ -291,7 +292,7 @@ export default function LandingPage() {
             </motion.h1>
 
             <motion.p variants={fadeUp} className="text-sm sm:text-lg text-white/55 font-medium max-w-xl mx-auto mb-8 leading-relaxed px-2">
-              Sistem monitoring real-time ketersediaan laporan kegiatan sekolah tingkat SD se-Kabupaten Tabalong.
+              Sistem monitoring real-time ketersediaan laporan Program Pendidikan Karakter Jenjang SD se-Kabupaten Tabalong.
             </motion.p>
 
             {/* ── FILTER CONTROLS ── */}
@@ -363,10 +364,10 @@ export default function LandingPage() {
           style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.25)' }}>
           <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
             {[
-              { label: 'Total Sekolah',   value: allSchools.length,       icon: <School className="h-4 w-4" /> },
-              { label: 'Sudah Melapor',   value: stats.sekolahMelapor,    icon: <CheckCircle2 className="h-4 w-4" /> },
-              { label: 'Terverifikasi',   value: stats.terverifikasi,     icon: <Award className="h-4 w-4" /> },
-              { label: 'Capaian Bulan',   value: capaian, suffix: '%',    icon: <TrendingUp className="h-4 w-4" /> },
+              { label: 'Total Sekolah', value: allSchools.length, icon: <School className="h-4 w-4" /> },
+              { label: 'Sudah Melapor', value: stats.sekolahMelapor, icon: <CheckCircle2 className="h-4 w-4" /> },
+              { label: 'Terverifikasi', value: stats.terverifikasi, icon: <Award className="h-4 w-4" /> },
+              { label: 'Capaian Bulan', value: capaian, suffix: '%', icon: <TrendingUp className="h-4 w-4" /> },
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${P.gold}20` }}>
@@ -383,11 +384,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Scroll cue */}
-        <motion.div className="absolute bottom-28 left-1/2 -translate-x-1/2"
-          animate={{ y: [0, 8, 0] }} transition={{ duration: 1.6, repeat: Infinity }}>
-          <ChevronDown className="h-6 w-6" style={{ color: `${P.gold}70` }} />
-        </motion.div>
       </section>
 
       {/* ── STAT CARDS ── */}
@@ -426,7 +422,7 @@ export default function LandingPage() {
             {/* Donut Chart Panel */}
             <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
               className="rounded-3xl p-5 sm:p-8 flex flex-col items-center"
-              style={{ backgroundColor: P.cream, border: `1px solid ${P.sage}30`, borderLeft: `4px solid ${P.forest}` }}>
+              style={{ backgroundColor: P.cream, borderTop: `1px solid ${P.sage}30`, borderRight: `1px solid ${P.sage}30`, borderBottom: `1px solid ${P.sage}30`, borderLeft: `4px solid ${P.forest}` }}>
               <h3 className="text-base font-black mb-4 sm:mb-6 self-start" style={{ color: P.forestDark }}>Distribusi Status Laporan</h3>
               <DonutChart data={donutData} total={donutTotal} />
               <div className="w-full mt-4 sm:mt-6 space-y-2.5">
@@ -451,7 +447,7 @@ export default function LandingPage() {
             {/* Recent Reports Panel */}
             <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
               className="rounded-3xl p-5 sm:p-8"
-              style={{ backgroundColor: P.cream, border: `1px solid ${P.sage}30`, borderLeft: `4px solid ${P.gold}` }}>
+              style={{ backgroundColor: P.cream, borderTop: `1px solid ${P.sage}30`, borderRight: `1px solid ${P.sage}30`, borderBottom: `1px solid ${P.sage}30`, borderLeft: `4px solid ${P.gold}` }}>
               <h3 className="text-base font-black mb-6" style={{ color: P.forestDark }}>Laporan Terbaru</h3>
               <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                 {isLoading ? [...Array(5)].map((_, i) => (
@@ -465,11 +461,11 @@ export default function LandingPage() {
                   </div>
                 ) : reports.slice(0, 10).map((r, i) => {
                   const sc: Record<string, { bg: string; text: string; label: string }> = {
-                    terverifikasi: { bg: '#D1FAE5', text: P.forest, label: 'Terverifikasi' },
-                    menunggu:      { bg: '#FEF3C7', text: '#D97706', label: 'Menunggu' },
-                    revisi:        { bg: '#FEE2E2', text: '#DC2626', label: 'Revisi' },
+                    Terverifikasi: { bg: '#D1FAE5', text: P.forest, label: 'Terverifikasi' },
+                    Menunggu: { bg: '#FEF3C7', text: '#D97706', label: 'Menunggu' },
+                    Revisi: { bg: '#FEE2E2', text: '#DC2626', label: 'Revisi' },
                   };
-                  const s = sc[r.status] || sc.menunggu;
+                  const s = sc[r.status] || sc.Menunggu;
                   return (
                     <motion.div key={r.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.04 }}
@@ -514,11 +510,11 @@ export default function LandingPage() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { icon: <CheckCircle2 className="h-6 w-6" />, title: 'Verifikasi Cepat', desc: 'Disdik mengecek dan memverifikasi laporan sekolah langsung dari dashboard.', accent: '#6EE7B7' },
-              { icon: <BarChart3 className="h-6 w-6" />,    title: 'Pantau Real-Time', desc: 'Visualisasi data terkini menampilkan progress pelaporan sekolah per wilayah.', accent: P.gold },
-              { icon: <School className="h-6 w-6" />,       title: 'Portal Sekolah',  desc: 'Operator sekolah melacak dan memantau status laporan dengan mudah.', accent: P.sage },
-              { icon: <Shield className="h-6 w-6" />,       title: 'Sistem Aman',     desc: 'Otentikasi multi-level memastikan data terlindungi dan akses terkontrol.', accent: '#93C5FD' },
-              { icon: <Eye className="h-6 w-6" />,          title: 'Transparansi',    desc: 'Portal terbuka untuk umum agar masyarakat dapat memantau progres pelaporan.', accent: '#FCA5A5' },
-              { icon: <TrendingUp className="h-6 w-6" />,   title: 'Analisis Wilayah',desc: 'Pantau capaian per kecamatan dan identifikasi sekolah yang belum melapor.', accent: '#C4B5FD' },
+              { icon: <BarChart3 className="h-6 w-6" />, title: 'Pantau Real-Time', desc: 'Visualisasi data terkini menampilkan progress pelaporan sekolah per wilayah.', accent: P.gold },
+              { icon: <School className="h-6 w-6" />, title: 'Portal Sekolah', desc: 'Operator sekolah melacak dan memantau status laporan dengan mudah.', accent: P.sage },
+              { icon: <Shield className="h-6 w-6" />, title: 'Sistem Aman', desc: 'Otentikasi multi-level memastikan data terlindungi dan akses terkontrol.', accent: '#93C5FD' },
+              { icon: <Eye className="h-6 w-6" />, title: 'Transparansi', desc: 'Portal terbuka untuk umum agar masyarakat dapat memantau progres pelaporan.', accent: '#FCA5A5' },
+              { icon: <TrendingUp className="h-6 w-6" />, title: 'Analisis Wilayah', desc: 'Pantau capaian per kecamatan dan identifikasi sekolah yang belum melapor.', accent: '#C4B5FD' },
             ].map((f, i) => (
               <motion.div key={i} variants={fadeUp}
                 whileHover={{ y: -5, backgroundColor: 'rgba(255,255,255,0.09)', borderColor: `${f.accent}30` }}
@@ -536,15 +532,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── KECAMATAN LEADERBOARD ── */}
-      <section style={{ backgroundColor: P.cream }} className="py-16">
+      <section className="py-16" style={{ background: `linear-gradient(180deg, ${P.forestDark}, #142E22)` }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }} className="mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3" style={{ backgroundColor: `${P.forest}10` }}>
-              <MapPin className="h-3 w-3" style={{ color: P.forest }} />
-              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: P.forest }}>Peringkat Wilayah</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3" style={{ backgroundColor: `${P.gold}20` }}>
+              <MapPin className="h-3 w-3" style={{ color: P.gold }} />
+              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: P.gold }}>Peringkat Wilayah</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black" style={{ color: P.forestDark }}>Pantauan Kecamatan</h2>
-            <p className="text-sm text-slate-400 mt-1">Periode: {selectedMonth} {selectedYear}</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">Pantauan Kecamatan</h2>
+            <p className="text-sm mt-1" style={{ color: P.sage }}>Periode: {selectedMonth} {selectedYear}</p>
           </motion.div>
 
           <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
@@ -554,39 +550,39 @@ export default function LandingPage() {
               const accent = CARD_ACCENTS[i % CARD_ACCENTS.length];
               return (
                 <motion.div key={k.name} variants={fadeUp}
-                  whileHover={{ y: -4, boxShadow: `0 12px 36px ${accent}22` }}
+                  whileHover={{ y: -4, boxShadow: `0 12px 36px rgba(0,0,0,0.3)` }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedKecamatan(k)}
-                  className="bg-white rounded-2xl p-4 flex items-start gap-3 transition-all duration-300 cursor-pointer active:scale-[0.98]"
-                  style={{ borderLeft: `4px solid ${accent}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                  className="rounded-2xl p-4 flex items-start gap-3 transition-all duration-300 cursor-pointer active:scale-[0.98]"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)', borderLeft: `4px solid ${accent}` }}>
                   {/* Rank badge */}
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black mt-0.5"
-                    style={{ backgroundColor: is100 ? '#D1FAE5' : `${accent}15`, color: is100 ? P.forest : accent }}>
+                    style={{ backgroundColor: is100 ? '#D1FAE5' : `${accent}25`, color: is100 ? P.forest : accent }}>
                     #{i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     {/* Name + percentage */}
                     <div className="flex justify-between items-start gap-2 mb-1.5">
-                      <span className="text-sm font-black text-slate-800 leading-tight line-clamp-2">{k.name}</span>
-                      <span className="text-base font-black shrink-0" style={{ color: is100 ? P.forest : accent }}>{k.completion}%</span>
+                      <span className="text-sm font-black text-white leading-tight line-clamp-2">{k.name}</span>
+                      <span className="text-base font-black shrink-0" style={{ color: is100 ? '#6EE7B7' : accent }}>{k.completion}%</span>
                     </div>
                     {/* Progress bar */}
-                    <div className="h-2 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: `${accent}15` }}>
-                      <motion.div className="h-full rounded-full" style={{ backgroundColor: is100 ? P.forest : accent }}
+                    <div className="h-2 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                      <motion.div className="h-full rounded-full" style={{ backgroundColor: is100 ? '#6EE7B7' : accent }}
                         initial={{ width: 0 }} whileInView={{ width: `${k.completion}%` }}
                         viewport={{ once: true }} transition={{ duration: 1.1, delay: i * 0.04 }} />
                     </div>
                     {/* Sudah / Belum badges */}
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ backgroundColor: '#D1FAE5' }}>
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: P.forest }} />
-                        <span className="text-[10px] font-black" style={{ color: P.forest }}>Lapor: {k.submittedSchools}</span>
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(16,185,129,0.2)' }}>
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#6EE7B7' }} />
+                        <span className="text-[10px] font-black" style={{ color: '#6EE7B7' }}>Lapor: {k.submittedSchools}</span>
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ backgroundColor: k.unsubmittedList.length > 0 ? '#FEE2E2' : '#D1FAE5' }}>
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: k.unsubmittedList.length > 0 ? '#DC2626' : P.forest }} />
-                        <span className="text-[10px] font-black" style={{ color: k.unsubmittedList.length > 0 ? '#DC2626' : P.forest }}>Belum: {k.unsubmittedList.length}</span>
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ backgroundColor: k.unsubmittedList.length > 0 ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)' }}>
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: k.unsubmittedList.length > 0 ? '#FCA5A5' : '#6EE7B7' }} />
+                        <span className="text-[10px] font-black" style={{ color: k.unsubmittedList.length > 0 ? '#FCA5A5' : '#6EE7B7' }}>Belum: {k.unsubmittedList.length}</span>
                       </div>
-                      <span className="text-[9px] text-slate-300 ml-auto font-medium hidden sm:block">Klik →</span>
+                      <span className="text-[9px] ml-auto font-medium hidden sm:block" style={{ color: 'rgba(255,255,255,0.3)' }}>Klik →</span>
                     </div>
                   </div>
                 </motion.div>

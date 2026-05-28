@@ -165,9 +165,19 @@ export default function LaporanPage() {
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("Apakah Anda yakin ingin menghapus laporan ini?")) return;
-        try { await deleteReport(id); toast.success("Laporan berhasil dihapus"); setReports(reports.filter(r => r.id !== id)); }
-        catch { toast.error("Gagal menghapus laporan"); }
+        if (!confirm("Apakah Anda yakin ingin menghapus laporan ini secara permanen?\n\nData akan dihapus dari Firebase Firestore.")) return;
+        try {
+            await deleteReport(id);
+            toast.success("Laporan berhasil dihapus dari database");
+            setReports(reports.filter(r => r.id !== id));
+        } catch (error: unknown) {
+            const msg = (error as { code?: string })?.code;
+            if (msg === 'permission-denied' || msg === 'PERMISSION_DENIED') {
+                toast.error("Tidak memiliki izin untuk menghapus laporan ini. Pastikan Firestore Rules sudah diperbarui.");
+            } else {
+                toast.error(`Gagal menghapus laporan: ${(error as Error)?.message || 'Error tidak diketahui'}`);
+            }
+        }
     }
 
     return (

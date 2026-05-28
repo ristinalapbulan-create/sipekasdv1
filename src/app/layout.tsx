@@ -9,7 +9,7 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 const inter = Inter({ subsets: ["latin"] });
 
 const APP_NAME = "SIMPEKA SD";
-const APP_DESCRIPTION = "Sistem Informasi Monitoring Pelaporan Kegiatan Sekolah Dasar — Disdikbud Kabupaten Tabalong";
+const APP_DESCRIPTION = "Sistem Informasi Monitoring Pelaporan Program Pendidikan Karakter Jenjang Sekolah Dasar — Disdikbud Kabupaten Tabalong";
 const APP_URL = "https://simpeka-5b2c4.web.app";
 
 export const viewport: Viewport = {
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
   // Icons
   icons: {
     icon: [
-      { url: "/icon-96.png",  sizes: "96x96",   type: "image/png" },
+      { url: "/icon-96.png", sizes: "96x96", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],

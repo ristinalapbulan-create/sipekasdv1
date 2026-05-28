@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getAllReports, updateReportStatus } from "@/lib/firestore-service";
+import { getAllReports, updateReportStatus, getGuruPekaByNpsn, type GuruPeka } from "@/lib/firestore-service";
 import { toast } from "sonner";
 import {
     Loader2, Search, FileText, Filter, Eye,
-    CheckCircle, XCircle, Users, Image, Calendar,
+    CheckCircle, XCircle, Users, Image, Calendar, MessageCircle, Phone, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
@@ -177,7 +177,7 @@ function ModalVerifikasi({
                                             <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M8 14s-6-4.686-6-8a6 6 0 1 1 12 0c0 3.314-6 8-6 8z" /><circle cx="8" cy="6" r="2" />
                                             </svg>
-                                            Kec. {selectedReport.kecamatan}
+                                            Kec. {selectedReport.kecamatan.replace(/^Kec\.\s*/i, '')}
                                         </span>
                                     )}
                                 </div>
@@ -323,6 +323,111 @@ function ModalVerifikasi({
     );
 }
 
+// ─── Modal Hubungi WhatsApp ────────────────────────────────────
+function WhatsAppModal({
+    isOpen, onClose, guruList, namaSekolah, catatanRevisi, bulanLaporan,
+}: {
+    isOpen: boolean; onClose: () => void;
+    guruList: GuruPeka[]; namaSekolah: string; catatanRevisi: string; bulanLaporan: string;
+}) {
+    if (!isOpen || guruList.length === 0) return null;
+    const guru = guruList[0]; // Kirim ke guru PEKA pertama
+    const nomorClean = guru.nomor_hp.replace(/\D/g, "").replace(/^0/, "62");
+    const pesan = encodeURIComponent(
+        `Assalamu'alaikum Wr. Wb.\n\n` +
+        `Yth. Bapak/Ibu ${guru.nama},\n` +
+        `Guru PEKA ${namaSekolah}\n\n` +
+        `Kami dari Disdikbud Tabalong menginformasikan bahwa laporan PEKA periode *${formatBulanLaporan(bulanLaporan)}* memerlukan *REVISI*.\n\n` +
+        `📝 *Catatan Revisi:*\n${catatanRevisi}\n\n` +
+        `Mohon segera melakukan perbaikan dan mengirim ulang melalui aplikasi SIMPEKA SD.\n\n` +
+        `Terima kasih atas perhatiannya. 🙏`
+    );
+    const waUrl = `https://wa.me/${nomorClean}?text=${pesan}`;
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+                    style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}>
+                    <motion.div initial={{ opacity: 0, scale: 0.92, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.92, y: 12 }}
+                        className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+                        {/* Header gradient */}
+                        <div style={{ height: 4, background: "linear-gradient(90deg, #25D366, #128C7E)" }} />
+                        <div className="p-5">
+                            {/* Close button */}
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#DCFCE7" }}>
+                                        <MessageCircle className="h-5 w-5" style={{ color: "#25D366" }} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-slate-900">Hubungi via WhatsApp</h3>
+                                        <p className="text-[10px] text-slate-400 font-medium">Kirim notifikasi revisi ke guru PEKA</p>
+                                    </div>
+                                </div>
+                                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* Guru info */}
+                            <div className="p-3.5 rounded-xl mb-4" style={{ backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0" }}>
+                                <p className="text-xs font-bold text-slate-700 mb-1">{namaSekolah}</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#DCFCE7" }}>
+                                        <Users className="h-3.5 w-3.5" style={{ color: "#16A34A" }} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black text-slate-800">{guru.nama}</p>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                            <Phone className="h-3 w-3" style={{ color: "#25D366" }} />
+                                            <p className="text-xs font-medium text-slate-500">{guru.nomor_hp}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {guruList.length > 1 && (
+                                    <p className="text-[10px] text-slate-400 mt-2 italic">
+                                        * {guruList.length} guru PEKA terdaftar. Pesan dikirim ke guru pertama.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Preview pesan */}
+                            <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Preview Pesan</p>
+                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line" style={{ maxHeight: 120, overflowY: "auto" }}>
+                                    Laporan periode {formatBulanLaporan(bulanLaporan)} memerlukan REVISI.{"\n"}
+                                    Catatan: {catatanRevisi}
+                                </p>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex gap-2">
+                                <button onClick={onClose}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all"
+                                    style={{ borderColor: "#E2E8F0", color: "#64748B" }}>
+                                    Tutup
+                                </button>
+                                <motion.a
+                                    href={waUrl} target="_blank" rel="noreferrer"
+                                    whileHover={{ scale: 1.02, boxShadow: "0 4px 16px rgba(37,211,102,0.35)" }}
+                                    whileTap={{ scale: 0.97 }}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all no-underline"
+                                    style={{ background: "linear-gradient(135deg, #25D366, #128C7E)" }}
+                                    onClick={onClose}
+                                >
+                                    <MessageCircle className="h-4 w-4" />
+                                    Kirim WA
+                                </motion.a>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+    );
+}
+
 // ─── Halaman Utama ─────────────────────────────────────────────
 export default function VerifikasiPage() {
     const [reports, setReports] = useState<ReportData[]>([]);
@@ -336,6 +441,13 @@ export default function VerifikasiPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [notes, setNotes] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // WhatsApp modal state
+    const [showWaModal, setShowWaModal] = useState(false);
+    const [waGuruList, setWaGuruList] = useState<GuruPeka[]>([]);
+    const [waSchoolName, setWaSchoolName] = useState("");
+    const [waCatatan, setWaCatatan] = useState("");
+    const [waBulan, setWaBulan] = useState("");
 
     const fetchReports = async () => {
         setIsLoading(true);
@@ -378,6 +490,24 @@ export default function VerifikasiPage() {
             toast.success(`Laporan berhasil diubah menjadi ${status}`);
             setIsModalOpen(false);
             fetchReports();
+
+            // Jika revisi, coba fetch guru PEKA dan tawarkan hubungi via WA
+            if (status === "Revisi") {
+                try {
+                    const guruList = await getGuruPekaByNpsn(selectedReport.npsn_sekolah);
+                    if (guruList.length > 0 && guruList[0].nomor_hp) {
+                        setWaGuruList(guruList);
+                        setWaSchoolName(selectedReport.nama_sekolah);
+                        setWaCatatan(notes);
+                        setWaBulan(selectedReport.bulan_laporan);
+                        setShowWaModal(true);
+                    } else {
+                        toast.info("Guru PEKA belum terdaftar atau belum mengisi nomor HP.", { duration: 4000 });
+                    }
+                } catch {
+                    // Gagal fetch guru, tidak masalah — revisi tetap tersimpan
+                }
+            }
         } catch { toast.error("Gagal memproses verifikasi"); }
         finally { setIsProcessing(false); }
     };
@@ -542,6 +672,7 @@ export default function VerifikasiPage() {
                         <p className="font-bold text-slate-500 text-sm">Tidak ada laporan yang sesuai</p>
                     </div>
                 ) : (
+                    <div className="max-h-[45vh] overflow-y-auto">
                     <AnimatePresence mode="popLayout">
                         {filtered.map((report, i) => (
                             <motion.div key={report.id}
@@ -559,7 +690,7 @@ export default function VerifikasiPage() {
                                             {report.kecamatan && (
                                                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
                                                     style={{ background: `${P.forest}10`, color: P.forest }}>
-                                                    Kec. {report.kecamatan}
+                                                    Kec. {report.kecamatan.replace(/^Kec\.\s*/i, '')}
                                                 </span>
                                             )}
                                         </div>
@@ -588,7 +719,7 @@ export default function VerifikasiPage() {
                                                 {report.kecamatan && (
                                                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
                                                         style={{ background: `${P.forest}10`, color: P.forest }}>
-                                                        Kec. {report.kecamatan}
+                                                        Kec. {report.kecamatan.replace(/^Kec\.\s*/i, '')}
                                                     </span>
                                                 )}
                                             </div>
@@ -619,6 +750,7 @@ export default function VerifikasiPage() {
                             </motion.div>
                         ))}
                     </AnimatePresence>
+                    </div>
                 )}
 
                 {!isLoading && filtered.length > 0 && (
@@ -639,6 +771,16 @@ export default function VerifikasiPage() {
                 setNotes={setNotes}
                 handleVerifikasi={handleVerifikasi}
                 isProcessing={isProcessing}
+            />
+
+            {/* ── WhatsApp Modal ── */}
+            <WhatsAppModal
+                isOpen={showWaModal}
+                onClose={() => setShowWaModal(false)}
+                guruList={waGuruList}
+                namaSekolah={waSchoolName}
+                catatanRevisi={waCatatan}
+                bulanLaporan={waBulan}
             />
         </div>
     );

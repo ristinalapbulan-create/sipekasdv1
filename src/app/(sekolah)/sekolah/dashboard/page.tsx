@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getReportsByNpsn } from "@/lib/firestore-service";
+import { getReportsByNpsn, getGuruPeka } from "@/lib/firestore-service";
 import { useAuthStore } from "@/lib/store";
 import { LoadingScreen } from "@/components/ui/loading-screen";
-import { CheckCircle2, Clock, FileWarning, BookOpen, PlusCircle, TrendingUp, Calendar } from "lucide-react";
+import { CheckCircle2, Clock, FileWarning, BookOpen, PlusCircle, TrendingUp, Calendar, AlertTriangle, Users, Settings } from "lucide-react";
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
 
@@ -26,10 +26,11 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default function SekolahDashboardPage() {
-    const { npsn, namaInstansi } = useAuthStore();
+    const { uid, npsn, namaInstansi } = useAuthStore();
     const [stats, setStats] = useState({ total: 0, menunggu: 0, revisi: 0, terverifikasi: 0 });
     const [reports, setReports] = useState<Report[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [guruCount, setGuruCount] = useState<number | null>(null);
 
     useEffect(() => {
         if (!npsn) return;
@@ -53,6 +54,12 @@ export default function SekolahDashboardPage() {
         }
         fetchStats();
     }, [npsn]);
+
+    // Cek apakah guru PEKA sudah diisi
+    useEffect(() => {
+        if (!uid) return;
+        getGuruPeka(uid).then(list => setGuruCount(list.length)).catch(() => setGuruCount(0));
+    }, [uid]);
 
     const pctVerified = stats.total > 0 ? Math.round((stats.terverifikasi / stats.total) * 100) : 0;
     const recentReports = reports.slice(0, 6);
@@ -93,6 +100,34 @@ export default function SekolahDashboardPage() {
                     </motion.div>
                 </Link>
             </motion.div>
+
+            {/* ── NOTIFIKASI GURU PEKA BELUM DIISI ── */}
+            {guruCount === 0 && (
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                    className="rounded-2xl overflow-hidden shadow-sm"
+                    style={{ border: '1.5px solid #FDE68A', borderLeft: `4px solid #F59E0B` }}>
+                    <div className="flex items-start gap-3.5 p-4 sm:p-5" style={{ backgroundColor: '#FFFBEB' }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                            style={{ backgroundColor: '#FEF3C7' }}>
+                            <AlertTriangle className="h-5 w-5" style={{ color: '#D97706' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-black text-amber-800 mb-1">Data Guru PEKA Belum Diisi!</h3>
+                            <p className="text-xs text-amber-700 leading-relaxed mb-3">
+                                Anda wajib mengisi data <strong>Guru PEKA</strong> beserta <strong>nomor HP/WhatsApp</strong> agar pihak Disdikbud dapat menghubungi langsung jika ada catatan revisi pada laporan.
+                            </p>
+                            <Link href="/sekolah/pengaturan">
+                                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-white cursor-pointer"
+                                    style={{ background: 'linear-gradient(135deg, #D97706, #F59E0B)', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                                    <Settings className="h-3.5 w-3.5" />
+                                    Isi Data Guru Sekarang
+                                </motion.div>
+                            </Link>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
             {/* ── STAT CARDS ── */}
             <motion.div variants={stagger} initial="hidden" animate="show" className="grid gap-4 grid-cols-2 lg:grid-cols-4">

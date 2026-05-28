@@ -242,9 +242,29 @@ export async function addSK(
   };
 }
 
+/** Tambah SK menggunakan link Google Drive (tanpa upload file) */
+export async function addSKByLink(
+  data: { nomor_surat: string; judul: string; link_gdrive: string }
+): Promise<SK> {
+  const docRef = await addDoc(collection(db, "sk_documents"), {
+    nomor_surat: data.nomor_surat,
+    judul: data.judul,
+    file_url: data.link_gdrive,
+    created_at: serverTimestamp(),
+  });
+
+  return {
+    id: docRef.id,
+    nomor_surat: data.nomor_surat,
+    judul: data.judul,
+    file_url: data.link_gdrive,
+    created_at: new Date().toISOString(),
+  };
+}
+
 export async function deleteSK(id: string, fileUrl: string): Promise<void> {
-  // Hapus file dari Storage jika ada
-  if (fileUrl && fileUrl.startsWith("https://")) {
+  // Hapus file dari Storage jika ada (hanya file Firebase Storage, bukan link gdrive)
+  if (fileUrl && fileUrl.includes("firebasestorage.googleapis.com")) {
     try {
       const fileRef = ref(storage, fileUrl);
       await deleteObject(fileRef);
@@ -356,4 +376,16 @@ export async function updateGuruPeka(uid: string, guruId: string, data: { nama: 
 
 export async function deleteGuruPeka(uid: string, guruId: string): Promise<void> {
   await deleteDoc(doc(db, "users", uid, "guru_peka", guruId));
+}
+
+/** Cari guru PEKA berdasarkan NPSN sekolah (untuk digunakan di halaman verifikasi disdik) */
+export async function getGuruPekaByNpsn(npsn: string): Promise<GuruPeka[]> {
+  // Cari user sekolah berdasarkan NPSN
+  const q = query(collection(db, "users"), where("npsn", "==", npsn));
+  const snap = await getDocs(q);
+  if (snap.empty) return [];
+  // Ambil guru_peka subcollection dari user pertama yg cocok
+  const schoolUid = snap.docs[0].id;
+  const guruSnap = await getDocs(collection(db, "users", schoolUid, "guru_peka"));
+  return guruSnap.docs.map(d => ({ id: d.id, nama: d.data().nama || "", nomor_hp: d.data().nomor_hp || "" }));
 }

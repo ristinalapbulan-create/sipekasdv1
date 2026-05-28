@@ -30,6 +30,14 @@ service cloud.firestore {
       allow read: if true;
       // Hanya disdik yang bisa tulis (admin manage users)
       allow write: if isDisdik() || request.auth.uid == uid;
+
+      // ── GURU PEKA (sub-collection) ──────────────────────────────────
+      match /guru_peka/{guruId} {
+        // Sekolah bisa kelola data guru PEKA milik sendiri
+        // Disdik bisa baca guru PEKA sekolah manapun (untuk fitur WhatsApp)
+        allow read: if isSignedIn() && (request.auth.uid == uid || isDisdik());
+        allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+      }
     }
 
     // ── LAPORAN ───────────────────────────────────────────────────────
@@ -42,13 +50,16 @@ service cloud.firestore {
                       request.resource.data.npsn_sekolah ==
                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn;
 
-      // Sekolah bisa hapus laporan milik sendiri yang statusnya Menunggu
-      allow delete: if isSekolah() &&
+      // Sekolah bisa hapus laporan milik sendiri yang belum disetujui (Menunggu/Revisi)
+      // Disdik bisa hapus laporan manapun
+      allow delete: if isDisdik() ||
+                    (isSekolah() &&
                       resource.data.npsn_sekolah ==
                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn &&
-                      resource.data.status == 'Menunggu';
+                      resource.data.status != 'Terverifikasi');
 
-      // Hanya disdik bisa update status laporan (verifikasi/revisi)
+      // Disdik bisa update status laporan (verifikasi/revisi)
+      // Sekolah bisa update laporan milik sendiri yang berstatus Revisi
       allow update: if isDisdik() ||
                     (isSekolah() &&
                       resource.data.npsn_sekolah ==

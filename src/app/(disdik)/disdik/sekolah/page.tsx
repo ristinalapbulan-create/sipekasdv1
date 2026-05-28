@@ -5,12 +5,13 @@ import { getAllSchoolProfiles, type UserProfile } from "@/lib/firestore-service"
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Search, School, KeyRound, AlertTriangle, MapPin, Plus, Trash2,
-    FileDown, FileSpreadsheet, FileText, ChevronDown, X, Loader2,
+    FileDown, FileSpreadsheet, FileText, ChevronDown, X, Loader2, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import {
-    collection, addDoc, deleteDoc, doc, serverTimestamp,
+    collection, addDoc, deleteDoc, doc, serverTimestamp, setDoc, updateDoc,
+    getDocs, query, where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
@@ -40,7 +41,9 @@ function TambahSekolahModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             const email = `${form.npsn}@simpekasd.id`;
             const password = 'pekasd';
             const cred = await createUserWithEmailAndPassword(auth, email, password);
-            await addDoc(collection(db, 'users'), {
+
+            // Simpan ke Firestore dengan UID sebagai doc ID (agar konsisten)
+            await setDoc(doc(db, 'users', cred.user.uid), {
                 uid: cred.user.uid,
                 email,
                 role: 'sekolah',
@@ -53,7 +56,9 @@ function TambahSekolahModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             onSuccess();
             onClose();
         } catch (err: any) {
-            if (err.code === 'auth/email-already-in-use') toast.error("NPSN sudah terdaftar");
+            if (err.code === 'auth/email-already-in-use') {
+                toast.error("NPSN sudah terdaftar di Firebase Auth. Hapus dulu akun lama di Firebase Console → Authentication sebelum mendaftar ulang.");
+            }
             else toast.error("Gagal menambahkan sekolah: " + err.message);
         } finally { setLoading(false); }
     };
@@ -71,7 +76,6 @@ function TambahSekolahModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                 transition={{ type: 'spring', stiffness: 320, damping: 28 }}
                 onClick={e => e.stopPropagation()}
                 className="w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl mx-0 sm:mx-4">
-                {/* Header */}
                 <div className="px-5 py-4 flex items-center justify-between"
                     style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}>
                     <div className="flex items-center gap-2">
@@ -139,6 +143,93 @@ function TambahSekolahModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     );
 }
 
+// ── Edit Nama Sekolah Modal ──
+function EditSekolahModal({ school, onClose, onSuccess }: { school: UserProfile; onClose: () => void; onSuccess: () => void }) {
+    const [namaInstansi, setNamaInstansi] = useState(school.nama_instansi);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!namaInstansi.trim()) { toast.error("Nama sekolah tidak boleh kosong"); return; }
+        setLoading(true);
+        try {
+            // Update berdasarkan UID langsung
+            await updateDoc(doc(db, 'users', school.uid), { nama_instansi: namaInstansi.trim() });
+
+            // Juga cari doc lain yang mungkin punya npsn yg sama (data lama pakai addDoc)
+            const q = query(collection(db, 'users'), where('npsn', '==', school.npsn));
+            const snap = await getDocs(q);
+            for (const d of snap.docs) {
+                if (d.id !== school.uid) {
+                    await updateDoc(doc(db, 'users', d.id), { nama_instansi: namaInstansi.trim() });
+                }
+            }
+
+            toast.success("Nama sekolah berhasil diperbarui!");
+            onSuccess();
+            onClose();
+        } catch (err: any) {
+            toast.error("Gagal mengubah nama: " + err.message);
+        } finally { setLoading(false); }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
+            style={{ backgroundColor: 'rgba(26,60,43,0.7)', backdropFilter: 'blur(6px)' }}
+            onClick={onClose}>
+            <motion.div
+                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                onClick={e => e.stopPropagation()}
+                className="w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl mx-0 sm:mx-4">
+                <div className="px-5 py-4 flex items-center justify-between"
+                    style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}>
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${P.gold}25` }}>
+                            <Pencil className="h-4 w-4" style={{ color: P.gold }} />
+                        </div>
+                        <h3 className="text-base font-black text-white">Edit Nama Sekolah</h3>
+                    </div>
+                    <button onClick={onClose} className="w-7 h-7 rounded-xl flex items-center justify-center text-white/60 hover:text-white"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-5 space-y-4" style={{ backgroundColor: 'white' }}>
+                    <div>
+                        <label className="block text-xs font-black text-slate-600 mb-1 uppercase tracking-wider">NPSN</label>
+                        <p className="text-sm font-mono font-bold px-3 py-2 rounded-xl" style={{ backgroundColor: '#F1F5F9', color: P.forestDark }}>{school.npsn}</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black text-slate-600 mb-1.5 uppercase tracking-wider">Nama Instansi</label>
+                        <input value={namaInstansi} onChange={e => setNamaInstansi(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-xl text-sm font-medium border outline-none focus:ring-2 transition-all"
+                            style={{ borderColor: `${P.sage}40` } as any}
+                            required />
+                    </div>
+                    <div className="pt-1 flex gap-2">
+                        <button type="button" onClick={onClose}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold border"
+                            style={{ borderColor: '#E2E8F0', color: '#64748b' }}>
+                            Batal
+                        </button>
+                        <motion.button type="submit" disabled={loading}
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black"
+                            style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})`, color: 'white' }}>
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                            {loading ? 'Menyimpan...' : 'Simpan'}
+                        </motion.button>
+                    </div>
+                </form>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 // ── Hapus Sekolah Confirm ──
 function HapusModal({ school, onClose, onSuccess }: { school: UserProfile; onClose: () => void; onSuccess: () => void }) {
     const [loading, setLoading] = useState(false);
@@ -146,12 +237,20 @@ function HapusModal({ school, onClose, onSuccess }: { school: UserProfile; onClo
     const handleDelete = async () => {
         setLoading(true);
         try {
-            // Hapus dari Firestore (cari doc by npsn)
-            const { getDocs, query, where, collection: col } = await import('firebase/firestore');
-            const q = query(col(db, 'users'), where('npsn', '==', school.npsn));
+            // 1. Hapus dari Firestore: doc utama (by uid) dan doc lama (by npsn query)
+            const q = query(collection(db, 'users'), where('npsn', '==', school.npsn));
             const snap = await getDocs(q);
             for (const d of snap.docs) await deleteDoc(doc(db, 'users', d.id));
-            toast.success(`${school.nama_instansi} berhasil dihapus dari database.`);
+            // Juga hapus doc by UID langsung (jika ada)
+            try { await deleteDoc(doc(db, 'users', school.uid)); } catch { /* mungkin sudah terhapus */ }
+
+            // 2. Hapus akun dari Firebase Authentication
+            // Catatan: Ini hanya bisa dilakukan dari client jika user yg login = user yg dihapus.
+            // Untuk menghapus akun user LAIN, diperlukan Firebase Admin SDK (server-side).
+            // Solusi praktis: kita TIDAK bisa menghapus auth dari client untuk user lain.
+            // Jadi kita perlu menghapus via Firebase Console atau Admin SDK.
+            
+            toast.success(`${school.nama_instansi} berhasil dihapus dari database Firestore.\n\n⚠️ Untuk menghapus akun Auth (agar NPSN bisa didaftarkan ulang), hapus juga di Firebase Console → Authentication.`, { duration: 8000 });
             onSuccess();
             onClose();
         } catch (err: any) {
@@ -183,6 +282,11 @@ function HapusModal({ school, onClose, onSuccess }: { school: UserProfile; onClo
                     <p className="text-sm text-slate-600 mb-1">Anda akan menghapus data:</p>
                     <p className="font-black text-slate-900 text-sm">{school.nama_instansi}</p>
                     <p className="text-xs text-slate-500 font-mono mt-0.5">NPSN: {school.npsn}</p>
+                    
+                    <div className="mt-3 p-2.5 rounded-xl text-[11px] leading-relaxed" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                        <strong>⚠️ Penting:</strong> Data di Firestore akan dihapus. Untuk mendaftarkan ulang NPSN ini, Anda juga perlu menghapus akun di <strong>Firebase Console → Authentication</strong>.
+                    </div>
+
                     <div className="flex gap-2 mt-4">
                         <button onClick={onClose}
                             className="flex-1 py-2.5 rounded-xl text-sm font-bold border"
@@ -210,6 +314,7 @@ export default function DataSekolahPage() {
     const [kecamatanFilter, setKecamatanFilter] = useState("Semua");
     const [showTambah, setShowTambah] = useState(false);
     const [hapusTarget, setHapusTarget] = useState<UserProfile | null>(null);
+    const [editTarget, setEditTarget] = useState<UserProfile | null>(null);
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const printMenuRef = useRef<HTMLDivElement>(null);
 
@@ -233,14 +338,16 @@ export default function DataSekolahPage() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const kecamatanList = ["Semua", ...Array.from(new Set(schools.map(s => s.kecamatan || ''))).filter(Boolean).sort()];
+    const kecamatanList = ["Semua", ...KECAMATAN_LIST];
 
     const filteredSchools = schools.filter(s => {
         const term = searchTerm.toLowerCase();
+        const kecNormalized = (s.kecamatan || "").replace(/^Kec\.\s*/i, "");
         const matchSearch = (s.nama_instansi || "").toLowerCase().includes(term) ||
             (s.kecamatan || "").toLowerCase().includes(term) ||
+            kecNormalized.toLowerCase().includes(term) ||
             (s.npsn || "").includes(term);
-        const matchKec = kecamatanFilter === "Semua" || s.kecamatan === kecamatanFilter;
+        const matchKec = kecamatanFilter === "Semua" || kecNormalized.toLowerCase() === kecamatanFilter.toLowerCase();
         return matchSearch && matchKec;
     });
 
@@ -252,7 +359,6 @@ export default function DataSekolahPage() {
         const data = perKecamatan ? schools.filter(s => s.kecamatan === perKecamatan) : filteredSchools;
         const judul = perKecamatan ? `Data Sekolah Kecamatan ${perKecamatan}` : 'Data Sekolah SD - Kab. Tabalong';
 
-        // Header
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.text('DINAS PENDIDIKAN DAN KEBUDAYAAN', 105, 15, { align: 'center' });
@@ -282,7 +388,6 @@ export default function DataSekolahPage() {
             margin: { left: 14, right: 14 },
         });
 
-        // Footer
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
@@ -430,7 +535,6 @@ export default function DataSekolahPage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                 className="rounded-2xl overflow-hidden shadow-sm"
                 style={{ border: `1px solid ${P.sage}30` }}>
-                {/* Search */}
                 <div className="p-3 sm:p-4" style={{ backgroundColor: 'white' }}>
                     <div className="relative">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: searchTerm ? P.forest : P.sage }} />
@@ -445,7 +549,6 @@ export default function DataSekolahPage() {
                     </div>
                 </div>
 
-                {/* Kecamatan filter — chip grid, semua tampil */}
                 <div className="px-3 pb-3 sm:px-4 sm:pb-4" style={{ backgroundColor: 'white', borderTop: `1px solid ${P.sage}15` }}>
                     <div className="flex items-center gap-1.5 mb-2 pt-3">
                         <MapPin className="h-3.5 w-3.5" style={{ color: P.forest }} />
@@ -488,9 +591,9 @@ export default function DataSekolahPage() {
                         <p className="text-sm text-slate-400">Coba gunakan kata kunci pencarian yang lain.</p>
                     </div>
                 ) : (
-                    <div className="divide-y max-h-[55vh] overflow-y-auto">
+                    <div className="divide-y max-h-[45vh] overflow-y-auto">
                         {filteredSchools.map((school, i) => (
-                            <motion.div key={school.npsn}
+                            <motion.div key={school.uid || school.npsn}
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.007, 0.3) }}
                                 className="hover:bg-slate-50/60 transition-colors">
                                 {/* Desktop row */}
@@ -507,9 +610,15 @@ export default function DataSekolahPage() {
                                         {school.npsn}
                                     </span>
                                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
-                                        <MapPin className="h-3 w-3 text-slate-400" />{school.kecamatan}
+                                        <MapPin className="h-3 w-3 text-slate-400" />{(school.kecamatan || '').replace(/^Kec\.\s*/i, '')}
                                     </span>
                                     <div className="flex items-center gap-1.5">
+                                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                            onClick={() => setEditTarget(school)}
+                                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all"
+                                            style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}>
+                                            <Pencil className="h-3 w-3" /> Edit
+                                        </motion.button>
                                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                                             className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all"
                                             style={{ backgroundColor: P.gold, color: P.forestDark }}>
@@ -535,10 +644,14 @@ export default function DataSekolahPage() {
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className="text-[10px] font-mono font-bold" style={{ color: P.forest }}>{school.npsn}</span>
                                             <span className="text-[10px] text-slate-400">·</span>
-                                            <span className="text-[10px] text-slate-500 truncate">{school.kecamatan}</span>
+                                            <span className="text-[10px] text-slate-500 truncate">{(school.kecamatan || '').replace(/^Kec\.\s*/i, '')}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <button onClick={() => setEditTarget(school)}
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#EDE9FE' }}>
+                                            <Pencil className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} />
+                                        </button>
                                         <button className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${P.gold}20` }}>
                                             <KeyRound className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
                                         </button>
@@ -570,6 +683,7 @@ export default function DataSekolahPage() {
             <AnimatePresence>
                 {showTambah && <TambahSekolahModal onClose={() => setShowTambah(false)} onSuccess={fetchSchools} />}
                 {hapusTarget && <HapusModal school={hapusTarget} onClose={() => setHapusTarget(null)} onSuccess={fetchSchools} />}
+                {editTarget && <EditSekolahModal school={editTarget} onClose={() => setEditTarget(null)} onSuccess={fetchSchools} />}
             </AnimatePresence>
         </div>
     );

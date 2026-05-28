@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getAllReports } from "@/lib/firestore-service";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import {
-    CheckCircle2, Clock, FileWarning, School, TrendingUp, BarChart3, AlertCircle, RefreshCw,
+    CheckCircle2, Clock, FileWarning, School, TrendingUp, BarChart3, AlertCircle, RefreshCw, ChevronDown, CalendarDays,
 } from "lucide-react";
 import { motion, type Variants } from "framer-motion";
 
@@ -134,68 +134,53 @@ export default function DisdikDashboardPage() {
 
             {/* ── FILTER PERIODE ── */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                className="rounded-2xl overflow-hidden shadow-sm"
-                style={{ border: `1px solid ${P.sage}30` }}>
-                {/* Header filter */}
-                <div className="flex items-center justify-between px-4 py-3"
-                    style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}>
+                className="rounded-2xl overflow-hidden bg-white shadow-sm"
+                style={{ borderTop: `1px solid ${P.sage}20`, borderRight: `1px solid ${P.sage}20`, borderBottom: `1px solid ${P.sage}20`, borderLeft: `4px solid ${P.forest}` }}>
+                <div className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${P.gold}30` }}>
-                            <Clock className="h-3.5 w-3.5" style={{ color: P.gold }} />
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${P.forest}, ${P.sage})` }}>
+                            <CalendarDays className="h-4 w-4 text-white" />
                         </div>
-                        <span className="text-sm font-black text-white">Filter Periode</span>
+                        <div>
+                            <p className="text-xs font-black" style={{ color: P.forestDark }}>Filter Periode</p>
+                            <p className="text-[10px] text-slate-400 font-medium">Pilih tahun dan bulan</p>
+                        </div>
                     </div>
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                        style={{ backgroundColor: `${P.gold}25`, color: P.gold }}>
-                        {selectedYear} · {displayMonth}
-                    </span>
+
+                    <div className="flex items-center gap-2 ml-auto">
+                        {/* Tahun Dropdown */}
+                        <div className="relative">
+                            <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)}
+                                className="pl-3 pr-8 py-2 rounded-xl text-xs font-black outline-none cursor-pointer transition-all duration-200 hover:shadow-md appearance-none"
+                                style={{ background: selectedYear !== 'Semua' ? `linear-gradient(135deg, ${P.forest}, ${P.forestDark})` : '#F8FAFC', color: selectedYear !== 'Semua' ? 'white' : P.forestDark, border: `1.5px solid ${selectedYear !== 'Semua' ? P.forest : '#E2E8F0'}` }}>
+                                <option value="Semua">📅 Semua Tahun</option>
+                                {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: selectedYear !== 'Semua' ? 'white' : '#94A3B8' }} />
+                        </div>
+
+                        {/* Bulan Dropdown */}
+                        <div className="relative">
+                            <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                                className="pl-3 pr-8 py-2 rounded-xl text-xs font-black outline-none cursor-pointer transition-all duration-200 hover:shadow-md appearance-none"
+                                style={{ background: selectedMonth !== 'Semua' ? `linear-gradient(135deg, #D97706, #B45309)` : '#F8FAFC', color: selectedMonth !== 'Semua' ? 'white' : P.forestDark, border: `1.5px solid ${selectedMonth !== 'Semua' ? '#D97706' : '#E2E8F0'}` }}>
+                                <option value="Semua">📆 Semua Bulan</option>
+                                {MONTH_KEYS.map(m => <option key={m} value={m}>{MONTHS_MAP[m]}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: selectedMonth !== 'Semua' ? 'white' : '#94A3B8' }} />
+                        </div>
+                    </div>
                 </div>
 
-                <div className="p-3 space-y-3" style={{ backgroundColor: P.cream }}>
-                    {/* Tahun — compact chip row */}
-                    <div>
-                        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5 px-1" style={{ color: P.forest }}>Tahun</p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {['Semua', ...availableYears].map(y => (
-                                <button key={y} onClick={() => setSelectedYear(y)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-black transition-all duration-200"
-                                    style={{
-                                        backgroundColor: selectedYear === y ? P.forest : 'white',
-                                        color: selectedYear === y ? 'white' : '#64748b',
-                                        border: `1px solid ${selectedYear === y ? P.forest : '#E2E8F0'}`,
-                                    }}>
-                                    {y}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Bulan — grid 4 kolom semua tampil */}
-                    <div>
-                        <p className="text-[9px] font-black uppercase tracking-widest mb-1.5 px-1" style={{ color: P.forest }}>Bulan</p>
-                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
-                            <button onClick={() => setSelectedMonth('Semua')}
-                                className="col-span-1 py-2 rounded-lg text-[10px] font-black transition-all duration-200 text-center"
-                                style={{
-                                    backgroundColor: selectedMonth === 'Semua' ? P.gold : 'white',
-                                    color: selectedMonth === 'Semua' ? P.forestDark : '#64748b',
-                                    border: `1px solid ${selectedMonth === 'Semua' ? P.gold : '#E2E8F0'}`,
-                                }}>
-                                Semua
-                            </button>
-                            {MONTH_KEYS.map(m => (
-                                <button key={m} onClick={() => setSelectedMonth(m)}
-                                    className="py-2 rounded-lg text-[10px] font-black transition-all duration-200 text-center"
-                                    style={{
-                                        backgroundColor: selectedMonth === m ? P.gold : 'white',
-                                        color: selectedMonth === m ? P.forestDark : '#64748b',
-                                        border: `1px solid ${selectedMonth === m ? P.gold : '#E2E8F0'}`,
-                                    }}>
-                                    {MONTHS_SHORT[m]}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                {/* Active filter badge bar */}
+                <div className="flex items-center gap-2 px-4 py-2" style={{ backgroundColor: P.cream }}>
+                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: P.sage }}>Aktif:</span>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: `${P.forest}12`, color: P.forest }}>
+                        {selectedYear === 'Semua' ? 'Semua Tahun' : selectedYear}
+                    </span>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: `${P.gold}20`, color: '#92400E' }}>
+                        {displayMonth}
+                    </span>
                 </div>
             </motion.div>
 

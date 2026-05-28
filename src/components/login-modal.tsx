@@ -61,7 +61,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
             const credential = await signInWithEmailAndPassword(auth, loginEmail, values.password);
             const profile = await getUserProfile(credential.user.uid, loginEmail);
             if (!profile) { toast.error("Akun tidak ditemukan. Hubungi administrator."); await auth.signOut(); return; }
-            setAuth({ uid: credential.user.uid, email: credential.user.email || "", role: profile.role, npsn: profile.npsn || null, namaInstansi: profile.nama_instansi });
+            setAuth({ uid: credential.user.uid, email: credential.user.email || "", role: profile.role, npsn: profile.npsn || null, namaInstansi: profile.nama_instansi, kecamatan: profile.kecamatan || null });
             const token = await credential.user.getIdToken();
             document.cookie = `auth_token=${token}; path=/; max-age=3600; SameSite=Strict`;
             document.cookie = `user_role=${profile.role}; path=/; max-age=3600; SameSite=Strict`;
