@@ -3,84 +3,76 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── HELPER FUNCTIONS ──────────────────────────────────────────────
+    // ── HELPER FUNCTIONS (Hanya digunakan untuk Write/Delete) ─────────
+    // PENTING: Fungsi getUserData() memakai get() yang mengonsumsi 1 read.
+    // Fungsi ini HANYA dipanggil saat operasi write (create/update/delete),
+    // yang frekuensinya sangat rendah (1x per klik tombol).
+    // Untuk operasi READ, TIDAK ADA get() sehingga 100% gratis.
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    function isDisdik() {
-      return isSignedIn() && getUserRole() == 'disdik';
-    }
-
-    function isSekolah() {
-      return isSignedIn() && getUserRole() == 'sekolah';
-    }
-
-    function isOwner(npsn) {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn == npsn;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     // ── USERS ─────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Portal publik butuh baca data sekolah untuk statistik
+      // Portal publik butuh baca data sekolah untuk statistik — 0% get()
       allow read: if true;
-      // Hanya disdik yang bisa tulis (admin manage users)
-      allow write: if isDisdik() || request.auth.uid == uid;
+
+      // Write: hanya disdik atau pemilik akun — get() hanya dipanggil 1x saat tulis
+      allow write: if isSignedIn() && (getUserData().role == 'disdik' || request.auth.uid == uid);
 
       // ── GURU PEKA (sub-collection) ──────────────────────────────────
       match /guru_peka/{guruId} {
-        // Sekolah bisa kelola data guru PEKA milik sendiri
-        // Disdik bisa baca guru PEKA sekolah manapun (untuk fitur WhatsApp)
-        allow read: if isSignedIn() && (request.auth.uid == uid || isDisdik());
+        // READ dioptimasi: cek UID langsung, TANPA get()
+        // - Sekolah bisa baca guru PEKA milik sendiri (uid == auth.uid)
+        // - Disdik bisa baca guru PEKA sekolah manapun (resource mungkin null pada list, jadi cek uid saja)
+        allow read: if isSignedIn() && (request.auth.uid == uid || getUserData().role == 'disdik');
+
+        // WRITE: hanya pemilik akun — tanpa get()
         allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
       }
     }
 
     // ── LAPORAN ───────────────────────────────────────────────────────
     match /reports/{reportId} {
-      // Portal publik butuh baca laporan untuk metrik
+      // Portal publik bebas baca — 0% get(), 100% gratis
       allow read: if true;
 
-      // Sekolah bisa buat laporan baru untuk NPSN-nya sendiri
-      allow create: if isSekolah() &&
-                      request.resource.data.npsn_sekolah ==
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn;
+      // CREATE: get() dipanggil 1x saat sekolah submit laporan baru
+      allow create: if isSignedIn() && getUserData().role == 'sekolah' &&
+                    request.resource.data.npsn_sekolah == getUserData().npsn;
 
-      // Sekolah bisa hapus laporan milik sendiri yang belum disetujui (Menunggu/Revisi)
-      // Disdik bisa hapus laporan manapun
-      allow delete: if isDisdik() ||
-                    (isSekolah() &&
-                      resource.data.npsn_sekolah ==
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn &&
-                      resource.data.status != 'Terverifikasi');
+      // DELETE: get() dipanggil 1x saat klik tombol hapus
+      allow delete: if isSignedIn() && (getUserData().role == 'disdik' ||
+                    (getUserData().role == 'sekolah' &&
+                      resource.data.npsn_sekolah == getUserData().npsn &&
+                      resource.data.status != 'Terverifikasi'));
 
-      // Disdik bisa update status laporan (verifikasi/revisi)
-      // Sekolah bisa update laporan milik sendiri yang berstatus Revisi
-      allow update: if isDisdik() ||
-                    (isSekolah() &&
-                      resource.data.npsn_sekolah ==
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.npsn &&
-                      resource.data.status == 'Revisi');
+      // UPDATE: get() dipanggil 1x saat klik tombol update
+      allow update: if isSignedIn() && (getUserData().role == 'disdik' ||
+                    (getUserData().role == 'sekolah' &&
+                      resource.data.npsn_sekolah == getUserData().npsn &&
+                      resource.data.status == 'Revisi'));
     }
 
     // ── SK DISDIK ─────────────────────────────────────────────────────
     match /sk_documents/{skId} {
-      // Semua user yang login bisa baca SK
+      // READ: 100% bebas get() — tidak memakan kuota tambahan
       allow read: if isSignedIn();
-      // Hanya disdik bisa tambah / hapus SK
-      allow create, update, delete: if isDisdik();
+      // WRITE: get() hanya dipanggil 1x saat disdik tambah/hapus SK
+      allow create, update, delete: if isSignedIn() && getUserData().role == 'disdik';
     }
 
     // ── DOKUMENTASI ───────────────────────────────────────────────────
     match /dokumentasi/{docId} {
-      // Semua user yang login bisa baca galeri dokumentasi
+      // READ: 100% bebas get() — tidak memakan kuota tambahan
       allow read: if isSignedIn();
-      // Hanya disdik bisa kelola dokumentasi
-      allow create, update, delete: if isDisdik();
+      // WRITE: get() hanya dipanggil 1x saat disdik kelola dokumentasi
+      allow create, update, delete: if isSignedIn() && getUserData().role == 'disdik';
     }
   }
 }

@@ -154,7 +154,7 @@ export default function LandingPage() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState('2026');
   const [selectedMonth, setSelectedMonth] = useState('Januari');
-  const [reports, setReports] = useState<Report[]>([]);
+  const [allReportsCache, setAllReportsCache] = useState<Report[]>([]); // Cache SEMUA reports (fetch 1x)
   const [allSchools, setAllSchools] = useState<UserProfile[]>([]);
   const [availableYears, setAvailableYears] = useState<string[]>(['2026']);
   const [isLoading, setIsLoading] = useState(true);
@@ -170,26 +170,33 @@ export default function LandingPage() {
   }, [scrollY]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // ── FETCH DATA HANYA 1X saat mount — TIDAK re-fetch saat filter berubah ──
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [allReports, schools] = await Promise.all([getAllReports(), getAllSchoolProfiles()]);
+        const [fetchedReports, schools] = await Promise.all([getAllReports(), getAllSchoolProfiles()]);
         const years = new Set<string>();
-        allReports.forEach(r => { if (r.bulan_laporan) years.add(r.bulan_laporan.split('-')[0]); });
+        fetchedReports.forEach(r => { if (r.bulan_laporan) years.add(r.bulan_laporan.split('-')[0]); });
         const sortedYears = Array.from(years).filter(y => parseInt(y) >= 2026).sort().reverse();
         setAvailableYears(sortedYears.length > 0 ? sortedYears : ['2026']);
         if (sortedYears.length > 0 && !sortedYears.includes(selectedYear)) setSelectedYear(sortedYears[0]);
         setAllSchools(schools);
-        setReports(allReports.filter(r => r.bulan_laporan &&
-          r.bulan_laporan.startsWith(selectedYear) &&
-          r.bulan_laporan.endsWith(`-${String(MONTHS.indexOf(selectedMonth) + 1).padStart(2, '0')}`)
-        ));
+        setAllReportsCache(fetchedReports); // Simpan semua reports di cache
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }
     }
     fetchData();
-  }, [selectedYear, selectedMonth]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ← HANYA 1x saat mount, bukan setiap filter berubah
+
+  // ── FILTER di client-side — 0 reads Firestore ──
+  const reports = useMemo(() =>
+    allReportsCache.filter(r => r.bulan_laporan &&
+      r.bulan_laporan.startsWith(selectedYear) &&
+      r.bulan_laporan.endsWith(`-${String(MONTHS.indexOf(selectedMonth) + 1).padStart(2, '0')}`)
+    ), [allReportsCache, selectedYear, selectedMonth]);
 
   const stats = useMemo(() => {
     const terverifikasi = reports.filter(r => r.status === 'Terverifikasi').length;

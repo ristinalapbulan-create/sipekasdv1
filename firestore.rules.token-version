@@ -1,0 +1,72 @@
+// ═══════════════════════════════════════════════════════════════════════
+// FIRESTORE RULES — VERSI FULL TOKEN (100% GRATIS)
+// ═══════════════════════════════════════════════════════════════════════
+// GUNAKAN FILE INI setelah menjalankan set-custom-claims.mjs
+// dan SEMUA user sudah logout + login ulang.
+//
+// Rules ini membaca data langsung dari request.auth.token
+// sehingga TIDAK ADA get() = 0 read tambahan = 100% gratis.
+// ═══════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── HELPER FUNCTIONS (GRATIS & CEPAT) ──────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isDisdik() {
+      return isSignedIn() && request.auth.token.role == 'disdik';
+    }
+
+    function isSekolah() {
+      return isSignedIn() && request.auth.token.role == 'sekolah';
+    }
+
+    function getUserNpsn() {
+      return request.auth.token.npsn;
+    }
+
+    // ── USERS ─────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if isDisdik() || request.auth.uid == uid;
+
+      match /guru_peka/{guruId} {
+        allow read: if isSignedIn() && (request.auth.uid == uid || isDisdik());
+        allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ── LAPORAN ───────────────────────────────────────────────────────
+    match /reports/{reportId} {
+      allow read: if true;
+
+      allow create: if isSekolah() && request.resource.data.npsn_sekolah == getUserNpsn();
+
+      allow delete: if isDisdik() ||
+                    (isSekolah() &&
+                      resource.data.npsn_sekolah == getUserNpsn() &&
+                      resource.data.status != 'Terverifikasi');
+
+      allow update: if isDisdik() ||
+                    (isSekolah() &&
+                      resource.data.npsn_sekolah == getUserNpsn() &&
+                      resource.data.status == 'Revisi');
+    }
+
+    // ── SK DISDIK & DOKUMENTASI ──────────────────────────────────────
+    match /sk_documents/{skId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isDisdik();
+    }
+
+    match /dokumentasi/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isDisdik();
+    }
+  }
+}
