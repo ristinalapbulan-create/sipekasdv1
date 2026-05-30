@@ -148,6 +148,34 @@ export async function getAllReports(): Promise<Report[]> {
   }));
 }
 
+/** Ambil laporan hanya untuk SATU tahun — hemat kuota reads Firestore.
+ *  Contoh: getReportsByYear("2026") hanya ambil laporan Jan-Des 2026.
+ *  Jika year = "Semua", fallback ke getAllReports(). */
+export async function getReportsByYear(year: string): Promise<Report[]> {
+  if (!year || year === "Semua") return getAllReports();
+
+  const q = query(
+    collection(db, "reports"),
+    where("bulan_laporan", ">=", `${year}-01`),
+    where("bulan_laporan", "<=", `${year}-12`),
+    orderBy("bulan_laporan", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({
+    id: d.id,
+    npsn_sekolah: d.data().npsn_sekolah || "",
+    nama_sekolah: d.data().nama_sekolah || "",
+    link_jurnal: d.data().link_jurnal || "",
+    link_daftar_hadir: d.data().link_daftar_hadir || "",
+    link_dokumentasi: d.data().link_dokumentasi || "",
+    status: d.data().status || "Menunggu",
+    catatan_revisi: d.data().catatan_revisi || "",
+    bulan_laporan: d.data().bulan_laporan || "",
+    kecamatan: d.data().kecamatan || "",
+    created_at: tsToIso(d.data().created_at),
+  }));
+}
+
 export async function getReportsByNpsn(npsn: string): Promise<Report[]> {
   const q = query(
     collection(db, "reports"),

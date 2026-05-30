@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getAllReports, updateReportStatus, getGuruPekaByNpsn, type GuruPeka } from "@/lib/firestore-service";
+import { getReportsByYear, updateReportStatus, getGuruPekaByNpsn, type GuruPeka } from "@/lib/firestore-service";
 import { toast } from "sonner";
 import {
     Loader2, Search, FileText, Filter, Eye,
@@ -433,9 +433,15 @@ export default function VerifikasiPage() {
     const [reports, setReports] = useState<ReportData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedYear, setSelectedYear] = useState("Semua");
+    const currentYearStr = String(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(currentYearStr);
     const [selectedMonth, setSelectedMonth] = useState("Semua");
-    const [availableYears, setAvailableYears] = useState<string[]>([]);
+    // Tahun tersedia: 2026 s/d tahun sekarang (tanpa query database)
+    const availableYears = useMemo(() => {
+        const years: string[] = [];
+        for (let y = new Date().getFullYear(); y >= 2026; y--) years.push(String(y));
+        return years;
+    }, []);
     const [activeTab, setActiveTab] = useState<Tab>("Semua");
     const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -449,20 +455,16 @@ export default function VerifikasiPage() {
     const [waCatatan, setWaCatatan] = useState("");
     const [waBulan, setWaBulan] = useState("");
 
-    const fetchReports = async () => {
+    const fetchReports = async (year?: string) => {
         setIsLoading(true);
         try {
-            const data = await getAllReports();
-            const years = new Set<string>();
-            data.forEach((r) => { if (r.bulan_laporan) years.add(r.bulan_laporan.split("-")[0]); });
-            // Hanya dari database, tanpa dummy tahun
-            setAvailableYears(Array.from(years).sort().reverse());
+            const data = await getReportsByYear(year || selectedYear);
             setReports(data as ReportData[]);
         } catch { toast.error("Gagal mengambil data laporan"); }
         finally { setIsLoading(false); }
     };
 
-    useEffect(() => { fetchReports(); }, []);
+    useEffect(() => { fetchReports(selectedYear); }, [selectedYear]);
 
     const counts = useMemo(() => ({
         Semua: reports.length,
@@ -475,11 +477,10 @@ export default function VerifikasiPage() {
         reports.filter((r) => {
             const matchTab = activeTab === "Semua" || r.status === activeTab;
             const matchSearch = r.nama_sekolah.toLowerCase().includes(searchTerm.toLowerCase()) || r.npsn_sekolah.includes(searchTerm);
-            const matchYear = selectedYear === "Semua" || r.bulan_laporan.startsWith(selectedYear);
             const matchMonth = selectedMonth === "Semua" || r.bulan_laporan.endsWith(`-${selectedMonth}`);
-            return matchTab && matchSearch && matchYear && matchMonth;
+            return matchTab && matchSearch && matchMonth;
         }),
-        [reports, activeTab, searchTerm, selectedYear, selectedMonth]);
+        [reports, activeTab, searchTerm, selectedMonth]);
 
     const handleVerifikasi = async (status: "Terverifikasi" | "Revisi") => {
         if (!selectedReport) return;
@@ -489,7 +490,7 @@ export default function VerifikasiPage() {
             await updateReportStatus(selectedReport.id, status, notes);
             toast.success(`Laporan berhasil diubah menjadi ${status}`);
             setIsModalOpen(false);
-            fetchReports();
+            fetchReports(selectedYear);
 
             // Jika revisi, coba fetch guru PEKA dan tawarkan hubungi via WA
             if (status === "Revisi") {

@@ -7,7 +7,7 @@ import {
   MapPin, ChevronDown, Award,
 } from 'lucide-react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
-import { getAllReports, getAllSchoolProfiles, type Report, type UserProfile } from '@/lib/firestore-service';
+import { getReportsByYear, getAllSchoolProfiles, type Report, type UserProfile } from '@/lib/firestore-service';
 import { LoginModal } from '@/components/login-modal';
 
 // ── PALETTE (Islamic green-gold) ──
@@ -152,11 +152,17 @@ const HexPattern = () => (
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [selectedYear, setSelectedYear] = useState('2026');
+  const currentYear = String(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState('Januari');
-  const [allReportsCache, setAllReportsCache] = useState<Report[]>([]); // Cache SEMUA reports (fetch 1x)
+  const [yearReportsCache, setYearReportsCache] = useState<Report[]>([]); // Cache laporan SATU tahun
   const [allSchools, setAllSchools] = useState<UserProfile[]>([]);
-  const [availableYears, setAvailableYears] = useState<string[]>(['2026']);
+  // Tahun tersedia: 2026 s/d tahun sekarang (tanpa perlu query database)
+  const availableYears = useMemo(() => {
+    const years: string[] = [];
+    for (let y = new Date().getFullYear(); y >= 2026; y--) years.push(String(y));
+    return years;
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedKecamatan, setSelectedKecamatan] = useState<typeof kecamatanStats[0] | null>(null);
 
@@ -171,32 +177,31 @@ export default function LandingPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ── FETCH DATA HANYA 1X saat mount — TIDAK re-fetch saat filter berubah ──
+  // ── FETCH laporan per TAHUN + sekolah 1x ──
+  // Saat ganti tahun → re-fetch hanya laporan tahun itu (~2500 docs max)
+  // Saat ganti bulan → filter di client (0 reads)
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [fetchedReports, schools] = await Promise.all([getAllReports(), getAllSchoolProfiles()]);
-        const years = new Set<string>();
-        fetchedReports.forEach(r => { if (r.bulan_laporan) years.add(r.bulan_laporan.split('-')[0]); });
-        const sortedYears = Array.from(years).filter(y => parseInt(y) >= 2026).sort().reverse();
-        setAvailableYears(sortedYears.length > 0 ? sortedYears : ['2026']);
-        if (sortedYears.length > 0 && !sortedYears.includes(selectedYear)) setSelectedYear(sortedYears[0]);
-        setAllSchools(schools);
-        setAllReportsCache(fetchedReports); // Simpan semua reports di cache
+        const [fetchedReports, schools] = await Promise.all([
+          getReportsByYear(selectedYear),
+          allSchools.length > 0 ? Promise.resolve(allSchools) : getAllSchoolProfiles(),
+        ]);
+        if (allSchools.length === 0) setAllSchools(schools);
+        setYearReportsCache(fetchedReports);
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }
     }
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ← HANYA 1x saat mount, bukan setiap filter berubah
+  }, [selectedYear]); // ← Re-fetch HANYA saat tahun berubah
 
-  // ── FILTER di client-side — 0 reads Firestore ──
+  // ── FILTER bulan di client-side — 0 reads Firestore ──
   const reports = useMemo(() =>
-    allReportsCache.filter(r => r.bulan_laporan &&
-      r.bulan_laporan.startsWith(selectedYear) &&
+    yearReportsCache.filter(r => r.bulan_laporan &&
       r.bulan_laporan.endsWith(`-${String(MONTHS.indexOf(selectedMonth) + 1).padStart(2, '0')}`)
-    ), [allReportsCache, selectedYear, selectedMonth]);
+    ), [yearReportsCache, selectedMonth]);
 
   const stats = useMemo(() => {
     const terverifikasi = reports.filter(r => r.status === 'Terverifikasi').length;

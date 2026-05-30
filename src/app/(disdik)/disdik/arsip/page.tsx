@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getAllReports, updateReportStatus, deleteReport, type Report } from "@/lib/firestore-service";
+import { getReportsByYear, updateReportStatus, deleteReport, type Report } from "@/lib/firestore-service";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { motion, AnimatePresence } from "framer-motion";
 import { Database, Download, Search, FileSpreadsheet, Building2, MapPin, CalendarDays, FilterX, Trash2, Pencil, CheckCircle2, Clock, AlertTriangle, X } from "lucide-react";
@@ -38,7 +38,8 @@ export default function ArsipPage() {
     const [search, setSearch] = useState("");
     const [filterKecamatan, setFilterKecamatan] = useState("all");
     const [filterBulan, setFilterBulan] = useState("all");
-    const [filterTahun, setFilterTahun] = useState("all");
+    const currentYearStr = String(new Date().getFullYear());
+    const [filterTahun, setFilterTahun] = useState(currentYearStr);
 
     // Edit status state
     const [editingReport, setEditingReport] = useState<Report | null>(null);
@@ -46,32 +47,33 @@ export default function ArsipPage() {
     const [editCatatan, setEditCatatan] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
 
+    // Tahun tersedia: 2026 s/d tahun sekarang (tanpa query database)
     const availableYears = useMemo(() => {
-        const s = new Set<string>();
-        reports.forEach(r => { if (r.bulan_laporan) s.add(r.bulan_laporan.split('-')[0]); });
-        return Array.from(s).sort().reverse();
-    }, [reports]);
+        const years: string[] = [];
+        for (let y = new Date().getFullYear(); y >= 2026; y--) years.push(String(y));
+        return years;
+    }, []);
 
-    const fetchReports = async () => {
+    const fetchReports = async (year?: string) => {
         setLoading(true);
-        try { setReports(await getAllReports()); }
+        try { setReports(await getReportsByYear(year || filterTahun)); }
         catch { toast.error("Gagal memuat data laporan"); }
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchReports(); }, []);
+    useEffect(() => { fetchReports(filterTahun); }, [filterTahun]);
 
     const filteredReports = useMemo(() => reports.filter(r => {
         const matchSearch = r.nama_sekolah.toLowerCase().includes(search.toLowerCase()) || r.npsn_sekolah.includes(search);
         const matchKecamatan = filterKecamatan === "all" || (r.kecamatan || '').replace(/^Kec\.\s*/i, '').toLowerCase() === filterKecamatan.toLowerCase();
-        if (!r.bulan_laporan) return filterBulan === "all" && filterTahun === "all" && matchSearch && matchKecamatan;
-        const [y, m] = r.bulan_laporan.split("-");
-        return matchSearch && matchKecamatan && (filterBulan === "all" || m === filterBulan) && (filterTahun === "all" || y === filterTahun);
-    }), [reports, search, filterKecamatan, filterBulan, filterTahun]);
+        if (!r.bulan_laporan) return filterBulan === "all" && matchSearch && matchKecamatan;
+        const [, m] = r.bulan_laporan.split("-");
+        return matchSearch && matchKecamatan && (filterBulan === "all" || m === filterBulan);
+    }), [reports, search, filterKecamatan, filterBulan]);
 
-    const isFiltered = search || filterKecamatan !== "all" || filterBulan !== "all" || filterTahun !== "all";
+    const isFiltered = search || filterKecamatan !== "all" || filterBulan !== "all" || filterTahun !== currentYearStr;
 
-    const resetFilters = () => { setSearch(""); setFilterKecamatan("all"); setFilterBulan("all"); setFilterTahun("all"); };
+    const resetFilters = () => { setSearch(""); setFilterKecamatan("all"); setFilterBulan("all"); setFilterTahun(currentYearStr); };
 
     // ── Edit Status ──
     const openEditStatus = (r: Report) => {
@@ -91,7 +93,7 @@ export default function ArsipPage() {
             await updateReportStatus(editingReport.id, editStatus, editStatus === "Revisi" ? editCatatan : "");
             toast.success(`Status laporan berhasil diubah ke "${editStatus}"`);
             setEditingReport(null);
-            fetchReports();
+            fetchReports(filterTahun);
         } catch { toast.error("Gagal mengubah status"); }
         finally { setIsUpdating(false); }
     };

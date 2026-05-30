@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getAllReports } from "@/lib/firestore-service";
+import { useEffect, useState, useMemo } from "react";
+import { getReportsByYear } from "@/lib/firestore-service";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import {
     CheckCircle2, Clock, FileWarning, School, TrendingUp, BarChart3, AlertCircle, RefreshCw, ChevronDown, CalendarDays,
@@ -57,41 +57,49 @@ export default function DisdikDashboardPage() {
     const [stats, setStats] = useState<Stats>({ total: 0, menunggu: 0, revisi: 0, terverifikasi: 0, sekolahMelapor: 0 });
     const [recent, setRecent] = useState<RecentReport[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState<string>("2026");
+    const currentYearStr = String(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
     const [selectedMonth, setSelectedMonth] = useState<string>("Semua");
-    const [availableYears, setAvailableYears] = useState<string[]>([]);
+    // Tahun tersedia: 2026 s/d tahun sekarang (tanpa query database)
+    const availableYears = useMemo(() => {
+        const years: string[] = [];
+        for (let y = new Date().getFullYear(); y >= 2026; y--) years.push(String(y));
+        return years;
+    }, []);
+    const [yearReportsCache, setYearReportsCache] = useState<import("@/lib/firestore-service").Report[]>([]);
 
-    async function fetchStats() {
+    // Fetch laporan per TAHUN saja — hemat kuota
+    async function fetchByYear(year: string) {
         setIsLoading(true);
         try {
-            const allReports = await getAllReports();
-            const years = new Set<string>();
-            allReports.forEach(r => { if (r.bulan_laporan) years.add(r.bulan_laporan.split("-")[0]); });
-            setAvailableYears(Array.from(years).sort().reverse());
-
-            let filtered = [...allReports];
-            if (selectedYear !== "Semua") filtered = filtered.filter(r => r.bulan_laporan?.startsWith(selectedYear));
-            if (selectedMonth !== "Semua") filtered = filtered.filter(r => r.bulan_laporan?.endsWith(`-${selectedMonth}`));
-
-            let total = 0, menunggu = 0, revisi = 0, terverifikasi = 0;
-            const sekolahSet = new Set<string>();
-            const all: RecentReport[] = [];
-            filtered.forEach(r => {
-                total++;
-                if (r.status === "Menunggu") menunggu++;
-                if (r.status === "Revisi") revisi++;
-                if (r.status === "Terverifikasi") terverifikasi++;
-                sekolahSet.add(r.npsn_sekolah);
-                all.push({ id: r.id, nama_sekolah: r.nama_sekolah, bulan_laporan: r.bulan_laporan, status: r.status, created_at: r.created_at });
-            });
-            all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-            setStats({ total, menunggu, revisi, terverifikasi, sekolahMelapor: sekolahSet.size });
-            setRecent(all.slice(0, 6));
+            const data = await getReportsByYear(year);
+            setYearReportsCache(data);
         } catch (error) { console.error(error); }
         finally { setIsLoading(false); }
     }
 
-    useEffect(() => { fetchStats(); }, [selectedYear, selectedMonth]);
+    useEffect(() => { fetchByYear(selectedYear); }, [selectedYear]);
+
+    // Compute stats dari cache (filter bulan di client)
+    useEffect(() => {
+        let filtered = [...yearReportsCache];
+        if (selectedMonth !== "Semua") filtered = filtered.filter(r => r.bulan_laporan?.endsWith(`-${selectedMonth}`));
+
+        let total = 0, menunggu = 0, revisi = 0, terverifikasi = 0;
+        const sekolahSet = new Set<string>();
+        const all: RecentReport[] = [];
+        filtered.forEach(r => {
+            total++;
+            if (r.status === "Menunggu") menunggu++;
+            if (r.status === "Revisi") revisi++;
+            if (r.status === "Terverifikasi") terverifikasi++;
+            sekolahSet.add(r.npsn_sekolah);
+            all.push({ id: r.id, nama_sekolah: r.nama_sekolah, bulan_laporan: r.bulan_laporan, status: r.status, created_at: r.created_at });
+        });
+        all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setStats({ total, menunggu, revisi, terverifikasi, sekolahMelapor: sekolahSet.size });
+        setRecent(all.slice(0, 6));
+    }, [yearReportsCache, selectedMonth]);
 
     const pctVerified = stats.total > 0 ? Math.round((stats.terverifikasi / stats.total) * 100) : 0;
 
@@ -125,7 +133,7 @@ export default function DisdikDashboardPage() {
                     <p className="text-slate-500 mt-1 font-medium text-sm">Monitoring kegiatan PEKA Sekolah Dasar Kab. Tabalong</p>
                 </div>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                    onClick={fetchStats}
+                    onClick={() => fetchByYear(selectedYear)}
                     className="flex items-center gap-2 px-4 py-2.5 text-sm font-black rounded-xl shadow-sm transition-all self-start sm:self-auto"
                     style={{ background: P.gold, color: P.forestDark }}>
                     <RefreshCw className="h-4 w-4" /> Refresh
@@ -152,11 +160,10 @@ export default function DisdikDashboardPage() {
                         <div className="relative">
                             <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)}
                                 className="pl-3 pr-8 py-2 rounded-xl text-xs font-black outline-none cursor-pointer transition-all duration-200 hover:shadow-md appearance-none"
-                                style={{ background: selectedYear !== 'Semua' ? `linear-gradient(135deg, ${P.forest}, ${P.forestDark})` : '#F8FAFC', color: selectedYear !== 'Semua' ? 'white' : P.forestDark, border: `1.5px solid ${selectedYear !== 'Semua' ? P.forest : '#E2E8F0'}` }}>
-                                <option value="Semua">📅 Semua Tahun</option>
+                                style={{ background: `linear-gradient(135deg, ${P.forest}, ${P.forestDark})`, color: 'white', border: `1.5px solid ${P.forest}` }}>
                                 {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: selectedYear !== 'Semua' ? 'white' : '#94A3B8' }} />
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: 'white' }} />
                         </div>
 
                         {/* Bulan Dropdown */}
