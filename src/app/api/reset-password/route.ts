@@ -5,12 +5,31 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 
 const DEFAULT_PASSWORD = 'pekasd';
 
 export async function POST(req: NextRequest) {
+  // Cek env vars tersedia sebelum import Admin SDK
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKeyRaw) {
+    console.error('[reset-password] Missing env vars:', {
+      FIREBASE_ADMIN_PROJECT_ID: !!projectId,
+      FIREBASE_ADMIN_CLIENT_EMAIL: !!clientEmail,
+      FIREBASE_ADMIN_PRIVATE_KEY: !!privateKeyRaw,
+    });
+    return NextResponse.json(
+      { error: 'Konfigurasi server tidak lengkap. Hubungi administrator.' },
+      { status: 500 }
+    );
+  }
+
   try {
+    // Import dinamis agar tidak error saat build
+    const { getAdminAuth } = await import('@/lib/firebase-admin');
+
     const body = await req.json();
     const { uid, npsn } = body as { uid?: string; npsn?: string };
 
