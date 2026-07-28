@@ -307,6 +307,114 @@ function HapusModal({ school, onClose, onSuccess }: { school: UserProfile; onClo
     );
 }
 
+// ── Reset Password Modal ──
+function ResetPasswordModal({ school, onClose }: { school: UserProfile; onClose: () => void }) {
+    const [loading, setLoading] = useState(false);
+    const [done, setDone] = useState(false);
+
+    const handleReset = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: school.uid, npsn: school.npsn }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Gagal reset password');
+            setDone(true);
+            toast.success(`Password ${school.nama_instansi} berhasil direset ke "pekasd"`);
+        } catch (err: any) {
+            toast.error(err.message || 'Gagal mereset password');
+        } finally { setLoading(false); }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
+            style={{ backgroundColor: 'rgba(26,60,43,0.7)', backdropFilter: 'blur(6px)' }}
+            onClick={onClose}>
+            <motion.div
+                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                onClick={e => e.stopPropagation()}
+                className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl mx-0 sm:mx-4 bg-white">
+                {/* Header */}
+                <div className="px-5 py-4 flex items-center gap-3"
+                    style={{ background: 'linear-gradient(135deg, #92400E, #D97706)' }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                        <KeyRound className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-black text-white">Reset Password</h3>
+                        <p className="text-xs text-amber-200">Kembalikan ke password default</p>
+                    </div>
+                </div>
+
+                <div className="p-5">
+                    {done ? (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                            className="flex flex-col items-center text-center py-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
+                                style={{ backgroundColor: '#D1FAE5' }}>
+                                <KeyRound className="h-7 w-7" style={{ color: P.forest }} />
+                            </div>
+                            <p className="font-black text-slate-900 text-sm mb-1">Password Berhasil Direset!</p>
+                            <p className="text-xs text-slate-500 mb-1">{school.nama_instansi}</p>
+                            <div className="mt-3 px-4 py-2.5 rounded-xl w-full text-center"
+                                style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                                <p className="text-[11px] font-bold text-amber-800">Password baru:</p>
+                                <p className="text-2xl font-black tracking-widest mt-1" style={{ color: '#92400E' }}>pekasd</p>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-3">Informasikan password ini kepada operator sekolah.</p>
+                            <button onClick={onClose}
+                                className="mt-4 w-full py-2.5 rounded-xl text-sm font-black text-white"
+                                style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}>
+                                Tutup
+                            </button>
+                        </motion.div>
+                    ) : (
+                        <>
+                            <p className="text-sm text-slate-600 mb-1">Anda akan mereset password akun:</p>
+                            <p className="font-black text-slate-900 text-sm">{school.nama_instansi}</p>
+                            <p className="text-xs text-slate-500 font-mono mt-0.5">NPSN: {school.npsn}</p>
+
+                            <div className="mt-3 p-3 rounded-xl flex items-center gap-3"
+                                style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                                <KeyRound className="h-5 w-5 shrink-0" style={{ color: '#92400E' }} />
+                                <div>
+                                    <p className="text-[11px] font-black" style={{ color: '#92400E' }}>Password akan direset ke:</p>
+                                    <p className="text-base font-black tracking-wider mt-0.5" style={{ color: '#92400E' }}>pekasd</p>
+                                </div>
+                            </div>
+
+                            <p className="text-[11px] text-slate-400 mt-2">Sekolah harus segera ganti password setelah login.</p>
+
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={onClose}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border"
+                                    style={{ borderColor: '#E2E8F0', color: '#64748b' }}>
+                                    Batal
+                                </button>
+                                <motion.button onClick={handleReset} disabled={loading}
+                                    whileTap={{ scale: 0.97 }}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white"
+                                    style={{ background: 'linear-gradient(135deg, #92400E, #D97706)', opacity: loading ? 0.7 : 1 }}>
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                                    {loading ? 'Mereset...' : 'Reset Password'}
+                                </motion.button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 export default function DataSekolahPage() {
     const [schools, setSchools] = useState<UserProfile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -315,6 +423,7 @@ export default function DataSekolahPage() {
     const [showTambah, setShowTambah] = useState(false);
     const [hapusTarget, setHapusTarget] = useState<UserProfile | null>(null);
     const [editTarget, setEditTarget] = useState<UserProfile | null>(null);
+    const [resetTarget, setResetTarget] = useState<UserProfile | null>(null);
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const printMenuRef = useRef<HTMLDivElement>(null);
 
@@ -620,6 +729,7 @@ export default function DataSekolahPage() {
                                             <Pencil className="h-3 w-3" /> Edit
                                         </motion.button>
                                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                            onClick={() => setResetTarget(school)}
                                             className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all"
                                             style={{ backgroundColor: P.gold, color: P.forestDark }}>
                                             <KeyRound className="h-3 w-3" /> Reset
@@ -652,7 +762,8 @@ export default function DataSekolahPage() {
                                             className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#EDE9FE' }}>
                                             <Pencil className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} />
                                         </button>
-                                        <button className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${P.gold}20` }}>
+                                        <button onClick={() => setResetTarget(school)}
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${P.gold}20` }}>
                                             <KeyRound className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
                                         </button>
                                         <button onClick={() => setHapusTarget(school)}
@@ -684,6 +795,7 @@ export default function DataSekolahPage() {
                 {showTambah && <TambahSekolahModal onClose={() => setShowTambah(false)} onSuccess={fetchSchools} />}
                 {hapusTarget && <HapusModal school={hapusTarget} onClose={() => setHapusTarget(null)} onSuccess={fetchSchools} />}
                 {editTarget && <EditSekolahModal school={editTarget} onClose={() => setEditTarget(null)} onSuccess={fetchSchools} />}
+                {resetTarget && <ResetPasswordModal school={resetTarget} onClose={() => setResetTarget(null)} />}
             </AnimatePresence>
         </div>
     );

@@ -172,9 +172,16 @@ export default function PengaturanSekolahPage() {
             toast.success("Password berhasil diubah! Silakan login ulang.");
             setPwOld(""); setPwNew(""); setPwConfirm("");
         } catch (err: unknown) {
-            const msg = (err as { code?: string })?.code === "auth/wrong-password"
-                ? "Password lama tidak benar" : "Gagal mengubah password";
-            toast.error(msg);
+            const code = (err as { code?: string })?.code;
+            if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+                toast.error("Password lama tidak benar.");
+            } else if (code === "auth/requires-recent-login") {
+                toast.error("Sesi kadaluarsa. Silakan logout dan login ulang dulu.");
+            } else if (code === "auth/too-many-requests") {
+                toast.error("Terlalu banyak percobaan. Coba lagi nanti.");
+            } else {
+                toast.error("Gagal mengubah password. Coba lagi.");
+            }
         }
         finally { setSavingPw(false); }
     };
