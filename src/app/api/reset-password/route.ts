@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
 
 const DEFAULT_PASSWORD = 'pekasd';
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!targetUid && npsn) {
       const email = `${npsn}@simpekasd.id`;
       try {
-        const userRecord = await adminAuth.getUserByEmail(email);
+        const userRecord = await getAdminAuth().getUserByEmail(email);
         targetUid = userRecord.uid;
       } catch {
         return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Reset password ke default
-    await adminAuth.updateUser(targetUid!, {
+    await getAdminAuth().updateUser(targetUid!, {
       password: DEFAULT_PASSWORD,
     });
 
