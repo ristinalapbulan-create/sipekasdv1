@@ -8,6 +8,7 @@ import { Database, Download, Search, FileSpreadsheet, Building2, MapPin, Calenda
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 const P = { forest: '#2D6A4F', forestDark: '#1A3C2B', sage: '#74B38A', gold: '#FAC84A', cream: '#FEFAE0' };
 
@@ -18,12 +19,12 @@ const MONTHS = [
     { value: "10", label: "Oktober" }, { value: "11", label: "November" }, { value: "12", label: "Desember" },
 ];
 
-const KECAMATAN_LIST = ["Tanjung","Murung Pudak","Kelua","Haruai","Tanta","Upau","Jaro","Muara Uya","Bintang Ara","Muara Harus","Pugaan","Banua Lawas"];
+const KECAMATAN_LIST = ["Tanjung", "Murung Pudak", "Kelua", "Haruai", "Tanta", "Upau", "Jaro", "Muara Uya", "Bintang Ara", "Muara Harus", "Pugaan", "Banua Lawas"];
 
 const STATUS_CFG: Record<string, { bg: string; text: string; dot: string }> = {
     Terverifikasi: { bg: '#D1FAE5', text: '#2D6A4F', dot: '#10B981' },
-    Menunggu:      { bg: '#FEF3C7', text: '#D97706', dot: '#F59E0B' },
-    Revisi:        { bg: '#FEE2E2', text: '#DC2626', dot: '#EF4444' },
+    Menunggu: { bg: '#FEF3C7', text: '#D97706', dot: '#F59E0B' },
+    Revisi: { bg: '#FEE2E2', text: '#DC2626', dot: '#EF4444' },
 };
 
 const STATUS_OPTIONS: { value: Report["status"]; label: string; icon: typeof CheckCircle2; color: string }[] = [
@@ -40,6 +41,8 @@ export default function ArsipPage() {
     const [filterBulan, setFilterBulan] = useState("all");
     const currentYearStr = String(new Date().getFullYear());
     const [filterTahun, setFilterTahun] = useState(currentYearStr);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(15);
 
     // Edit status state
     const [editingReport, setEditingReport] = useState<Report | null>(null);
@@ -73,7 +76,15 @@ export default function ArsipPage() {
 
     const isFiltered = search || filterKecamatan !== "all" || filterBulan !== "all" || filterTahun !== currentYearStr;
 
-    const resetFilters = () => { setSearch(""); setFilterKecamatan("all"); setFilterBulan("all"); setFilterTahun(currentYearStr); };
+    const resetFilters = () => { setSearch(""); setFilterKecamatan("all"); setFilterBulan("all"); setFilterTahun(currentYearStr); setCurrentPage(1); };
+
+    // Reset halaman ke 1 saat filter berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, filterKecamatan, filterBulan, filterTahun]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredReports.length / pageSize));
+    const paginatedReports = filteredReports.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // ── Edit Status ──
     const openEditStatus = (r: Report) => {
@@ -287,7 +298,7 @@ export default function ArsipPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredReports.length > 0 ? filteredReports.map(r => {
+                            {paginatedReports.length > 0 ? paginatedReports.map(r => {
                                 const s = STATUS_CFG[r.status] || STATUS_CFG.Menunggu;
                                 return (
                                     <tr key={r.id} className="border-t hover:bg-slate-50/60 transition-colors group"
@@ -357,12 +368,27 @@ export default function ArsipPage() {
                         </tbody>
                     </table>
                 </div>
-                <div className="px-5 py-3 border-t" style={{ backgroundColor: P.cream, borderColor: `${P.sage}15` }}>
+                <div className="px-5 py-3 border-t flex items-center justify-between" style={{ backgroundColor: P.cream, borderColor: `${P.sage}15` }}>
                     <p className="text-xs font-medium" style={{ color: P.sage }}>
-                        Total {filteredReports.length} laporan ditemukan
+                        Halaman <strong style={{ color: P.forest }}>{currentPage}</strong> dari <strong style={{ color: P.forest }}>{totalPages}</strong> ({filteredReports.length} total laporan)
                     </p>
                 </div>
             </motion.div>
-        </div>
+
+            {/* Pagination Controls */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredReports.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+                itemLabel="arsip"
+            />
+        </motion.div>
+        </div >
     );
 }

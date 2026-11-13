@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 // ─── Palet Warna ───────────────────────────────────────────────
 const P = {
@@ -47,9 +48,9 @@ const STATUS_CFG: Record<string, { bg: string; text: string; border: string; dot
 
 // Array agar urutan Jan-Des terjamin (Object numeric key bisa tidak berurutan di JS)
 const MONTHS: [string, string][] = [
-    ['01','Januari'],['02','Februari'],['03','Maret'],['04','April'],
-    ['05','Mei'],['06','Juni'],['07','Juli'],['08','Agustus'],
-    ['09','September'],['10','Oktober'],['11','November'],['12','Desember'],
+    ['01', 'Januari'], ['02', 'Februari'], ['03', 'Maret'], ['04', 'April'],
+    ['05', 'Mei'], ['06', 'Juni'], ['07', 'Juli'], ['08', 'Agustus'],
+    ['09', 'September'], ['10', 'Oktober'], ['11', 'November'], ['12', 'Desember'],
 ];
 
 // Helper: cari nama bulan dari value
@@ -447,6 +448,8 @@ export default function VerifikasiPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [notes, setNotes] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     // WhatsApp modal state
     const [showWaModal, setShowWaModal] = useState(false);
@@ -481,6 +484,14 @@ export default function VerifikasiPage() {
             return matchTab && matchSearch && matchMonth;
         }),
         [reports, activeTab, searchTerm, selectedMonth]);
+
+    // Reset ke halaman 1 saat filter berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, searchTerm, selectedMonth, selectedYear]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const paginatedReports = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const handleVerifikasi = async (status: "Terverifikasi" | "Revisi") => {
         if (!selectedReport) return;
@@ -673,48 +684,19 @@ export default function VerifikasiPage() {
                         <p className="font-bold text-slate-500 text-sm">Tidak ada laporan yang sesuai</p>
                     </div>
                 ) : (
-                    <div className="max-h-[45vh] overflow-y-auto">
-                    <AnimatePresence mode="popLayout">
-                        {filtered.map((report, i) => (
-                            <motion.div key={report.id}
-                                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }} transition={{ delay: i * 0.04 }}
-                                className="border-b last:border-0 transition-colors hover:bg-slate-50/60"
-                                style={{ borderColor: `${P.sage}15` }}>
+                    <div className="overflow-y-auto">
+                        <AnimatePresence mode="popLayout">
+                            {paginatedReports.map((report, i) => (
+                                <motion.div key={report.id}
+                                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }} transition={{ delay: i * 0.04 }}
+                                    className="border-b last:border-0 transition-colors hover:bg-slate-50/60"
+                                    style={{ borderColor: `${P.sage}15` }}>
 
-                                {/* Desktop: grid tabel */}
-                                <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_1fr_1fr_80px] gap-4 items-center px-6 py-4">
-                                    <div>
-                                        <p className="font-bold text-slate-900 text-sm">{report.nama_sekolah}</p>
-                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                            <p className="text-[10px] text-slate-400 font-mono">NPSN: {report.npsn_sekolah}</p>
-                                            {report.kecamatan && (
-                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                                    style={{ background: `${P.forest}10`, color: P.forest }}>
-                                                    Kec. {report.kecamatan.replace(/^Kec\.\s*/i, '')}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="text-sm font-semibold text-slate-600">{formatBulanLaporan(report.bulan_laporan)}</p>
-                                    <p className="text-xs text-slate-400 font-medium">
-                                        {new Date(report.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                    </p>
-                                    <StatusBadge status={report.status} />
-                                    <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl"
-                                        style={{ backgroundColor: "#D1FAE5", color: P.forest }}
-                                        onClick={() => { setSelectedReport(report); setNotes(report.catatan_revisi || ""); setIsModalOpen(true); }}>
-                                        <Eye className="h-3.5 w-3.5" /> Cek
-                                    </motion.button>
-                                </div>
-
-                                {/* Mobile: card layout */}
-                                <div className="sm:hidden px-4 py-3.5 flex flex-col gap-2.5">
-                                    {/* Nama + Status */}
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-bold text-slate-900 text-[13px] leading-snug">{report.nama_sekolah}</p>
+                                    {/* Desktop: grid tabel */}
+                                    <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_1fr_1fr_80px] gap-4 items-center px-6 py-4">
+                                        <div>
+                                            <p className="font-bold text-slate-900 text-sm">{report.nama_sekolah}</p>
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                                 <p className="text-[10px] text-slate-400 font-mono">NPSN: {report.npsn_sekolah}</p>
                                                 {report.kecamatan && (
@@ -725,64 +707,108 @@ export default function VerifikasiPage() {
                                                 )}
                                             </div>
                                         </div>
+                                        <p className="text-sm font-semibold text-slate-600">{formatBulanLaporan(report.bulan_laporan)}</p>
+                                        <p className="text-xs text-slate-400 font-medium">
+                                            {new Date(report.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                        </p>
                                         <StatusBadge status={report.status} />
-                                    </div>
-
-                                    {/* Meta + Tombol Cek */}
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-[11px] font-semibold text-slate-500 px-2 py-0.5 rounded-md"
-                                                style={{ background: "#f1f5f9" }}>
-                                                {formatBulanLaporan(report.bulan_laporan)}
-                                            </span>
-                                            <span className="text-[11px] text-slate-400">
-                                                {new Date(report.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                            </span>
-                                        </div>
-                                        <motion.button whileTap={{ scale: 0.94 }}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl shrink-0"
+                                        <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl"
                                             style={{ backgroundColor: "#D1FAE5", color: P.forest }}
                                             onClick={() => { setSelectedReport(report); setNotes(report.catatan_revisi || ""); setIsModalOpen(true); }}>
                                             <Eye className="h-3.5 w-3.5" /> Cek
                                         </motion.button>
                                     </div>
-                                </div>
 
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
+                                    {/* Mobile: card layout */}
+                                    <div className="sm:hidden px-4 py-3.5 flex flex-col gap-2.5">
+                                        {/* Nama + Status */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-bold text-slate-900 text-[13px] leading-snug">{report.nama_sekolah}</p>
+                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <p className="text-[10px] text-slate-400 font-mono">NPSN: {report.npsn_sekolah}</p>
+                                                    {report.kecamatan && (
+                                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                                            style={{ background: `${P.forest}10`, color: P.forest }}>
+                                                            Kec. {report.kecamatan.replace(/^Kec\.\s*/i, '')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <StatusBadge status={report.status} />
+                                        </div>
+
+                                        {/* Meta + Tombol Cek */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-[11px] font-semibold text-slate-500 px-2 py-0.5 rounded-md"
+                                                    style={{ background: "#f1f5f9" }}>
+                                                    {formatBulanLaporan(report.bulan_laporan)}
+                                                </span>
+                                                <span className="text-[11px] text-slate-400">
+                                                    {new Date(report.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                                                </span>
+                                            </div>
+                                            <motion.button whileTap={{ scale: 0.94 }}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl shrink-0"
+                                                style={{ backgroundColor: "#D1FAE5", color: P.forest }}
+                                                onClick={() => { setSelectedReport(report); setNotes(report.catatan_revisi || ""); setIsModalOpen(true); }}>
+                                                <Eye className="h-3.5 w-3.5" /> Cek
+                                            </motion.button>
+                                        </div>
+                                    </div>
+
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
                     </div>
                 )}
 
                 {!isLoading && filtered.length > 0 && (
-                    <div className="px-4 sm:px-6 py-3 border-t" style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
+                    <div className="px-4 sm:px-6 py-3 border-t flex items-center justify-between" style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
                         <p className="text-xs font-medium" style={{ color: P.sage }}>
-                            Menampilkan {filtered.length} dari {reports.length} laporan
+                            Halaman <strong style={{ color: P.forest }}>{currentPage}</strong> dari <strong style={{ color: P.forest }}>{totalPages}</strong> ({filtered.length} laporan sesuai filter)
                         </p>
                     </div>
                 )}
             </motion.div>
 
-            {/* ── Modal ── */}
-            <ModalVerifikasi
-                isModalOpen={isModalOpen}
-                setIsModalOpen={setIsModalOpen}
-                selectedReport={selectedReport}
-                notes={notes}
-                setNotes={setNotes}
-                handleVerifikasi={handleVerifikasi}
-                isProcessing={isProcessing}
+            {/* Pagination Controls */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+                itemLabel="laporan"
             />
+        </motion.div>
 
-            {/* ── WhatsApp Modal ── */}
-            <WhatsAppModal
-                isOpen={showWaModal}
-                onClose={() => setShowWaModal(false)}
-                guruList={waGuruList}
-                namaSekolah={waSchoolName}
-                catatanRevisi={waCatatan}
-                bulanLaporan={waBulan}
-            />
-        </div>
+            {/* ── Modal ── */ }
+    <ModalVerifikasi
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        selectedReport={selectedReport}
+        notes={notes}
+        setNotes={setNotes}
+        handleVerifikasi={handleVerifikasi}
+        isProcessing={isProcessing}
+    />
+
+    {/* ── WhatsApp Modal ── */ }
+    <WhatsAppModal
+        isOpen={showWaModal}
+        onClose={() => setShowWaModal(false)}
+        guruList={waGuruList}
+        namaSekolah={waSchoolName}
+        catatanRevisi={waCatatan}
+        bulanLaporan={waBulan}
+    />
+        </div >
     );
 }

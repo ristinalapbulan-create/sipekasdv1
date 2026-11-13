@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   applicationName: APP_NAME,
   title: {
-    default: `${APP_NAME} | Monitoring Pelaporan Sekolah Dasar Tabalong`,
+    default: `${APP_NAME} | Monitoring Pelaporan Program Pendidikan Karakter Jenjang Sekolah Dasar Tabalong`,
     template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     locale: "id_ID",
     url: APP_URL,
     siteName: APP_NAME,
-    title: `${APP_NAME} | Monitoring Pelaporan Sekolah Dasar Tabalong`,
+    title: `${APP_NAME} | Monitoring Pelaporan Program Pendidikan Karakter Jenjang Sekolah Dasar Tabalong`,
     description: APP_DESCRIPTION,
     images: [
       {
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   // Twitter Card
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} | Monitoring Pelaporan SD Tabalong`,
+    title: `${APP_NAME} | Monitoring Pelaporan Program Pendidikan Karakter Jenjang Sekolah Dasar Tabalong`,
     description: APP_DESCRIPTION,
     images: [`${APP_URL}/og-image.png`],
   },

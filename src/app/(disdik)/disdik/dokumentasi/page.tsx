@@ -7,6 +7,7 @@ import { Loader2, Plus, Trash2, Image as ImageIcon, Upload, ExternalLink, Calend
 import { motion, type Variants } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 const P = { forest: '#2D6A4F', forestDark: '#1A3C2B', sage: '#74B38A', gold: '#FAC84A', cream: '#FEFAE0' };
 
@@ -22,6 +23,11 @@ export default function KelolaDokumentasiPage() {
     const [deskripsi, setDeskripsi] = useState("");
     const [tautan, setTautan] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(6);
+
+    const totalPages = Math.max(1, Math.ceil(docsData.length / pageSize));
+    const paginatedDocs = docsData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const fetchDocs = async () => {
         setIsLoading(true);
@@ -152,7 +158,7 @@ export default function KelolaDokumentasiPage() {
                         </div>
                         <p className="font-bold text-slate-500 text-sm">Belum ada dokumentasi. Mulai unggah foto kegiatan pertama.</p>
                     </motion.div>
-                ) : docsData.map(item => (
+                ) : paginatedDocs.map(item => (
                     <motion.div key={item.id} variants={itemVariants} whileHover={{ y: -6 }} transition={{ type: "spring", stiffness: 300 }}>
                         <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 hover:shadow-xl transition-all h-full flex flex-col"
                             style={{ borderLeft: `4px solid ${P.forest}` }}>
@@ -202,6 +208,20 @@ export default function KelolaDokumentasiPage() {
                     </motion.div>
                 ))}
             </motion.div>
+
+            {/* Pagination Controls */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={docsData.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+                itemLabel="kegiatan dokumentasi"
+            />
         </div>
     );
 }

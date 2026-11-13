@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2, FileText, Link2, Search, ScrollText, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 const P = { forest: '#2D6A4F', forestDark: '#1A3C2B', sage: '#74B38A', gold: '#FAC84A', cream: '#FEFAE0' };
 
@@ -21,6 +22,8 @@ export default function KelolaSKPage() {
     const [nomorSurat, setNomorSurat] = useState("");
     const [judul, setJudul] = useState("");
     const [linkGdrive, setLinkGdrive] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const fetchSKs = async () => {
         setIsLoading(true);
@@ -56,6 +59,13 @@ export default function KelolaSKPage() {
         sk.judul.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sk.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredSks.length / pageSize));
+    const paginatedSks = filteredSks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
         <div className="space-y-6">
@@ -167,7 +177,7 @@ export default function KelolaSKPage() {
                     </div>
                 ) : (
                     <AnimatePresence mode="popLayout">
-                        {filteredSks.map((sk, i) => (
+                        {paginatedSks.map((sk, i) => (
                             <motion.div key={sk.id}
                                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -8 }} transition={{ delay: i * 0.04 }}>
@@ -232,13 +242,28 @@ export default function KelolaSKPage() {
                 )}
 
                 {!isLoading && filteredSks.length > 0 && (
-                    <div className="px-6 py-3 border-t" style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
+                    <div className="px-6 py-3 border-t flex items-center justify-between" style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
                         <p className="text-xs font-medium" style={{ color: P.sage }}>
-                            Menampilkan {filteredSks.length} dari {sks.length} SK
+                            Halaman <strong style={{ color: P.forest }}>{currentPage}</strong> dari <strong style={{ color: P.forest }}>{totalPages}</strong> ({filteredSks.length} total SK)
                         </p>
                     </div>
                 )}
             </motion.div>
-        </div>
+
+            {/* Pagination Controls */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredSks.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+                itemLabel="dokumen SK"
+            />
+        </motion.div>
+        </div >
     );
 }

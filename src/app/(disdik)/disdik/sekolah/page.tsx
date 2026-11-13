@@ -6,9 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Search, School, KeyRound, AlertTriangle, MapPin, Plus, Trash2,
     FileDown, FileSpreadsheet, FileText, ChevronDown, X, Loader2, Pencil,
+    Copy, Check, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingScreen } from "@/components/ui/loading-screen";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import {
     collection, addDoc, deleteDoc, doc, serverTimestamp, setDoc, updateDoc,
     getDocs, query, where,
@@ -311,22 +313,48 @@ function HapusModal({ school, onClose, onSuccess }: { school: UserProfile; onClo
 function ResetPasswordModal({ school, onClose }: { school: UserProfile; onClose: () => void }) {
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
+    const [useCustom, setUseCustom] = useState(false);
+    const [customPassword, setCustomPassword] = useState("");
+    const [copied, setCopied] = useState(false);
+    const [finalPassword, setFinalPassword] = useState("pekasd");
 
     const handleReset = async () => {
+        if (useCustom && customPassword.trim().length < 6) {
+            toast.error("Password kustom minimal 6 karakter");
+            return;
+        }
+
         setLoading(true);
+        const passwordToSend = useCustom && customPassword.trim() ? customPassword.trim() : "pekasd";
+
         try {
             const res = await fetch('/api/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: school.uid, npsn: school.npsn }),
+                body: JSON.stringify({
+                    uid: school.uid,
+                    npsn: school.npsn,
+                    namaInstansi: school.nama_instansi,
+                    newPassword: passwordToSend,
+                }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Gagal reset password');
+            
+            setFinalPassword(passwordToSend);
             setDone(true);
-            toast.success(`Password ${school.nama_instansi} berhasil direset ke "pekasd"`);
+            toast.success(`Password ${school.nama_instansi} berhasil direset ke "${passwordToSend}"`);
         } catch (err: any) {
             toast.error(err.message || 'Gagal mereset password');
         } finally { setLoading(false); }
+    };
+
+    const handleCopy = () => {
+        const text = `*Kredensial Login SIMPEKA SD*\nSekolah: ${school.nama_instansi}\nNPSN (Username): ${school.npsn}\nPassword Baru: ${finalPassword}\n\nSilakan login dan segera ubah kata sandi di menu Pengaturan.`;
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        toast.success("Kredensial berhasil disalin ke clipboard!");
+        setTimeout(() => setCopied(false), 3000);
     };
 
     return (
@@ -348,8 +376,8 @@ function ResetPasswordModal({ school, onClose }: { school: UserProfile; onClose:
                         <KeyRound className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                        <h3 className="text-sm font-black text-white">Reset Password</h3>
-                        <p className="text-xs text-amber-200">Kembalikan ke password default</p>
+                        <h3 className="text-sm font-black text-white">Reset Password Akun</h3>
+                        <p className="text-xs text-amber-200">Atur ulang sandi akun sekolah</p>
                     </div>
                 </div>
 
@@ -357,41 +385,85 @@ function ResetPasswordModal({ school, onClose }: { school: UserProfile; onClose:
                     {done ? (
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                            className="flex flex-col items-center text-center py-4">
+                            className="flex flex-col items-center text-center py-2">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
                                 style={{ backgroundColor: '#D1FAE5' }}>
                                 <KeyRound className="h-7 w-7" style={{ color: P.forest }} />
                             </div>
                             <p className="font-black text-slate-900 text-sm mb-1">Password Berhasil Direset!</p>
                             <p className="text-xs text-slate-500 mb-1">{school.nama_instansi}</p>
-                            <div className="mt-3 px-4 py-2.5 rounded-xl w-full text-center"
+                            
+                            <div className="mt-3 px-4 py-3 rounded-2xl w-full text-center"
                                 style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
                                 <p className="text-[11px] font-bold text-amber-800">Password baru:</p>
-                                <p className="text-2xl font-black tracking-widest mt-1" style={{ color: '#92400E' }}>pekasd</p>
+                                <p className="text-2xl font-black tracking-widest mt-0.5" style={{ color: '#92400E' }}>{finalPassword}</p>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-3">Informasikan password ini kepada operator sekolah.</p>
-                            <button onClick={onClose}
-                                className="mt-4 w-full py-2.5 rounded-xl text-sm font-black text-white"
-                                style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}>
-                                Tutup
-                            </button>
+
+                            <p className="text-[11px] text-slate-400 mt-2.5">
+                                NPSN: <strong className="text-slate-700 font-mono">{school.npsn}</strong>
+                            </p>
+
+                            <div className="flex gap-2 w-full mt-4">
+                                <button
+                                    onClick={handleCopy}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black border transition-all"
+                                    style={{ borderColor: '#F59E0B', backgroundColor: '#FEF3C7', color: '#B45309' }}
+                                >
+                                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copied ? 'Tersalin!' : 'Salin Kredensial'}
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 py-2.5 rounded-xl text-xs font-black text-white"
+                                    style={{ background: `linear-gradient(135deg, ${P.forestDark}, ${P.forest})` }}
+                                >
+                                    Selesai
+                                </button>
+                            </div>
                         </motion.div>
                     ) : (
                         <>
-                            <p className="text-sm text-slate-600 mb-1">Anda akan mereset password akun:</p>
+                            <p className="text-xs text-slate-500 mb-1">Target sekolah yang akan direset:</p>
                             <p className="font-black text-slate-900 text-sm">{school.nama_instansi}</p>
                             <p className="text-xs text-slate-500 font-mono mt-0.5">NPSN: {school.npsn}</p>
 
-                            <div className="mt-3 p-3 rounded-xl flex items-center gap-3"
-                                style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
-                                <KeyRound className="h-5 w-5 shrink-0" style={{ color: '#92400E' }} />
-                                <div>
-                                    <p className="text-[11px] font-black" style={{ color: '#92400E' }}>Password akan direset ke:</p>
-                                    <p className="text-base font-black tracking-wider mt-0.5" style={{ color: '#92400E' }}>pekasd</p>
+                            {/* Opsi custom password */}
+                            <div className="mt-3 space-y-2">
+                                <div className="p-3 rounded-xl" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={useCustom}
+                                                onChange={e => setUseCustom(e.target.checked)}
+                                                className="rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                                            />
+                                            Gunakan Password Kustom
+                                        </label>
+                                    </div>
+
+                                    {useCustom ? (
+                                        <div className="mt-2">
+                                            <input
+                                                type="text"
+                                                value={customPassword}
+                                                onChange={e => setCustomPassword(e.target.value)}
+                                                placeholder="Ketik password baru..."
+                                                className="w-full px-3 py-2 rounded-lg text-xs font-bold border border-amber-300 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 flex items-center justify-between">
+                                            <span className="text-xs text-amber-800 font-medium">Default:</span>
+                                            <span className="text-sm font-black font-mono text-amber-950 px-2 py-0.5 rounded bg-amber-200/60">pekasd</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <p className="text-[11px] text-slate-400 mt-2">Sekolah harus segera ganti password setelah login.</p>
+                            <p className="text-[11px] text-slate-400 mt-2.5">
+                                Akun sekolah akan dipulihkan secara otomatis dan dapat langsung digunakan login kembali.
+                            </p>
 
                             <div className="flex gap-2 mt-4">
                                 <button onClick={onClose}
@@ -404,7 +476,7 @@ function ResetPasswordModal({ school, onClose }: { school: UserProfile; onClose:
                                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white"
                                     style={{ background: 'linear-gradient(135deg, #92400E, #D97706)', opacity: loading ? 0.7 : 1 }}>
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                                    {loading ? 'Mereset...' : 'Reset Password'}
+                                    {loading ? 'Mereset...' : 'Reset Sekarang'}
                                 </motion.button>
                             </div>
                         </>
@@ -420,6 +492,8 @@ export default function DataSekolahPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [kecamatanFilter, setKecamatanFilter] = useState("Semua");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(15);
     const [showTambah, setShowTambah] = useState(false);
     const [hapusTarget, setHapusTarget] = useState<UserProfile | null>(null);
     const [editTarget, setEditTarget] = useState<UserProfile | null>(null);
@@ -459,6 +533,14 @@ export default function DataSekolahPage() {
         const matchKec = kecamatanFilter === "Semua" || kecNormalized.toLowerCase() === kecamatanFilter.toLowerCase();
         return matchSearch && matchKec;
     });
+
+    // Reset halaman ke 1 saat pencarian atau filter kecamatan berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, kecamatanFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredSchools.length / pageSize));
+    const paginatedSchools = filteredSchools.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // ── CETAK PDF ──
     const cetakPDF = async (perKecamatan?: string) => {
@@ -700,14 +782,16 @@ export default function DataSekolahPage() {
                         <p className="text-sm text-slate-400">Coba gunakan kata kunci pencarian yang lain.</p>
                     </div>
                 ) : (
-                    <div className="divide-y max-h-[45vh] overflow-y-auto">
-                        {filteredSchools.map((school, i) => (
+                    <div className="divide-y overflow-y-auto">
+                        {paginatedSchools.map((school, i) => (
                             <motion.div key={school.uid || school.npsn}
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.007, 0.3) }}
                                 className="hover:bg-slate-50/60 transition-colors">
                                 {/* Desktop row */}
                                 <div className="hidden sm:grid grid-cols-[auto_2fr_140px_1fr_auto] gap-4 items-center px-5 py-3.5">
-                                    <span className="w-6 text-center text-[11px] font-black text-slate-400">{i + 1}</span>
+                                    <span className="w-6 text-center text-[11px] font-black text-slate-400">
+                                        {(currentPage - 1) * pageSize + i + 1}
+                                    </span>
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#D1FAE5' }}>
                                             <School className="h-4 w-4" style={{ color: P.forest }} />
@@ -745,7 +829,9 @@ export default function DataSekolahPage() {
 
                                 {/* Mobile card */}
                                 <div className="sm:hidden flex items-center gap-3 px-4 py-3">
-                                    <span className="text-[11px] font-black text-slate-300 w-5 shrink-0 text-center">{i + 1}</span>
+                                    <span className="text-[11px] font-black text-slate-300 w-5 shrink-0 text-center">
+                                        {(currentPage - 1) * pageSize + i + 1}
+                                    </span>
                                     <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#D1FAE5' }}>
                                         <School className="h-4 w-4" style={{ color: P.forest }} />
                                     </div>
@@ -779,8 +865,8 @@ export default function DataSekolahPage() {
 
                 <div className="px-5 py-3 border-t flex items-center justify-between" style={{ backgroundColor: P.cream, borderColor: `${P.sage}20` }}>
                     <p className="text-xs font-medium" style={{ color: P.sage }}>
-                        Tampil <span className="font-black" style={{ color: P.forest }}>{filteredSchools.length}</span> dari{' '}
-                        <span className="font-black" style={{ color: P.forest }}>{schools.length}</span> sekolah
+                        Halaman <span className="font-black" style={{ color: P.forest }}>{currentPage}</span> dari{' '}
+                        <span className="font-black" style={{ color: P.forest }}>{totalPages}</span> ({filteredSchools.length} total sekolah)
                     </p>
                     {kecamatanFilter !== 'Semua' && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${P.forest}15`, color: P.forest }}>
@@ -789,6 +875,20 @@ export default function DataSekolahPage() {
                     )}
                 </div>
             </motion.div>
+
+            {/* Pagination Controls */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredSchools.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+                itemLabel="sekolah"
+            />
 
             {/* ── MODALS ── */}
             <AnimatePresence>
