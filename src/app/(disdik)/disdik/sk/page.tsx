@@ -263,7 +263,6 @@ export default function KelolaSKPage() {
                 }}
                 itemLabel="dokumen SK"
             />
-        </motion.div>
-        </div >
+        </div>
     );
 }

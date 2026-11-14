@@ -388,7 +388,6 @@ export default function ArsipPage() {
                 }}
                 itemLabel="arsip"
             />
-        </motion.div>
-        </div >
+        </div>
     );
 }

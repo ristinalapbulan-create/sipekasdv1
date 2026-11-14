@@ -787,28 +787,27 @@ export default function VerifikasiPage() {
                 }}
                 itemLabel="laporan"
             />
-        </motion.div>
 
-            {/* ── Modal ── */ }
-    <ModalVerifikasi
-        isModalOpen={isModalOpen}
-        setIsModalOpen={setIsModalOpen}
-        selectedReport={selectedReport}
-        notes={notes}
-        setNotes={setNotes}
-        handleVerifikasi={handleVerifikasi}
-        isProcessing={isProcessing}
-    />
+            {/* ── Modal ── */}
+            <ModalVerifikasi
+                isModalOpen={isModalOpen}
+                setIsModalOpen={setIsModalOpen}
+                selectedReport={selectedReport}
+                notes={notes}
+                setNotes={setNotes}
+                handleVerifikasi={handleVerifikasi}
+                isProcessing={isProcessing}
+            />
 
-    {/* ── WhatsApp Modal ── */ }
-    <WhatsAppModal
-        isOpen={showWaModal}
-        onClose={() => setShowWaModal(false)}
-        guruList={waGuruList}
-        namaSekolah={waSchoolName}
-        catatanRevisi={waCatatan}
-        bulanLaporan={waBulan}
-    />
-        </div >
+            {/* ── WhatsApp Modal ── */}
+            <WhatsAppModal
+                isOpen={showWaModal}
+                onClose={() => setShowWaModal(false)}
+                guruList={waGuruList}
+                namaSekolah={waSchoolName}
+                catatanRevisi={waCatatan}
+                bulanLaporan={waBulan}
+            />
+        </div>
     );
 }
